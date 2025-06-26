@@ -27,7 +27,7 @@ export interface RouteStep {
 }
 
 class RouteService {
-  private googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY' // Replace with your API key
+  private googleMapsApiKey = 'AIzaSyBJtXIqF5rVQs8wX2mF3nF8kF5rVQs8wX2' // Use your actual API key from app.json
 
   // Get route suggestions using Google Directions API
   async getRouteSuggestions(

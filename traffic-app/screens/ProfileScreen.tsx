@@ -1,5 +1,7 @@
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, FlatList } from "react-native"
+import { useState, useEffect } from "react"
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, FlatList, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { userService, UserProfile, Badge } from "../services/userService"
 
 interface ProfileScreenProps {
   navigation: any
@@ -30,6 +32,78 @@ const userReports = [
 ]
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [leaderboard, setLeaderboard] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadUserProfile()
+    loadLeaderboard()
+  }, [])
+
+  const loadUserProfile = async () => {
+    try {
+      let profile = userService.getCurrentUser()
+
+      // Create a demo profile if none exists
+      if (!profile) {
+        profile = await userService.createProfile("TrafficUser", "user@example.com")
+
+        // Add some demo experience and stats
+        await userService.updateStats({
+          reportsSubmitted: 5,
+          reportsVerified: 3,
+          upvotesReceived: 8,
+          helpfulVotes: 12,
+          distanceTraveled: 150,
+          timesSaved: 45
+        })
+
+        await userService.addExperience(250, "demo_setup")
+      }
+
+      setUserProfile(profile)
+    } catch (error) {
+      console.error("Failed to load user profile:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadLeaderboard = async () => {
+    try {
+      const leaderboardData = await userService.getLeaderboard()
+      setLeaderboard(leaderboardData)
+    } catch (error) {
+      console.error("Failed to load leaderboard:", error)
+    }
+  }
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            await userService.clearUserData()
+            navigation.replace("Login")
+          }
+        }
+      ]
+    )
+  }
+
+  const renderBadgeItem = ({ item }: { item: Badge }) => (
+    <View style={styles.badgeItem}>
+      <Text style={styles.badgeIcon}>{item.icon}</Text>
+      <Text style={styles.badgeName}>{item.name}</Text>
+    </View>
+  )
+
   const renderReportItem = ({ item }: { item: (typeof userReports)[0] }) => (
     <View style={styles.reportItem}>
       <View style={styles.reportHeader}>
@@ -43,6 +117,31 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     </View>
   )
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Ionicons name="person-circle" size={64} color="#ccc" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (!userProfile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={64} color="#f44336" />
+          <Text style={styles.errorText}>Failed to load profile</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadUserProfile}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -52,8 +151,12 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               <Ionicons name="person" size={40} color="#666" />
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>John Doe</Text>
-              <Text style={styles.userEmail}>john.doe@example.com</Text>
+              <Text style={styles.userName}>{userProfile.username}</Text>
+              <Text style={styles.userEmail}>{userProfile.email}</Text>
+              <View style={styles.levelContainer}>
+                <Text style={styles.levelText}>Level {userProfile.level}</Text>
+                <Text style={styles.experienceText}>{userProfile.experience} XP</Text>
+              </View>
             </View>
             <TouchableOpacity style={styles.editButton}>
               <Ionicons name="create-outline" size={20} color="#2196F3" />
@@ -63,17 +166,48 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         <View style={styles.statsSection}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>12</Text>
+            <Text style={styles.statNumber}>{userProfile.stats.reportsSubmitted}</Text>
             <Text style={styles.statLabel}>Reports</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>8</Text>
-            <Text style={styles.statLabel}>Resolved</Text>
+            <Text style={styles.statNumber}>{userProfile.stats.reportsVerified}</Text>
+            <Text style={styles.statLabel}>Verified</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>4</Text>
-            <Text style={styles.statLabel}>Active</Text>
+            <Text style={styles.statNumber}>{userProfile.stats.upvotesReceived}</Text>
+            <Text style={styles.statLabel}>Upvotes</Text>
           </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{Math.round(userProfile.stats.distanceTraveled)}</Text>
+            <Text style={styles.statLabel}>km Traveled</Text>
+          </View>
+        </View>
+
+        {/* Badges Section */}
+        <View style={styles.badgesSection}>
+          <Text style={styles.sectionTitle}>Badges ({userProfile.badges.length})</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesContainer}>
+            {userProfile.badges.map((badge) => (
+              <View key={badge.id} style={styles.badgeItem}>
+                <Text style={styles.badgeIcon}>{badge.icon}</Text>
+                <Text style={styles.badgeName}>{badge.name}</Text>
+                <Text style={styles.badgeRarity}>{badge.rarity}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Leaderboard Section */}
+        <View style={styles.leaderboardSection}>
+          <Text style={styles.sectionTitle}>Leaderboard</Text>
+          {leaderboard.slice(0, 5).map((user, index) => (
+            <View key={index} style={styles.leaderboardItem}>
+              <Text style={styles.leaderboardRank}>#{index + 1}</Text>
+              <Text style={styles.leaderboardName}>{user.username}</Text>
+              <Text style={styles.leaderboardLevel}>Level {user.level}</Text>
+              <Text style={styles.leaderboardReports}>{user.reportsSubmitted} reports</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.menuSection}>
@@ -112,7 +246,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color="#f44336" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -261,5 +395,119 @@ const styles = StyleSheet.create({
     color: "#f44336",
     marginLeft: 8,
     fontWeight: "500",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#f44336",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#2196F3",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  levelContainer: {
+    flexDirection: "row",
+    marginTop: 4,
+    gap: 12,
+  },
+  levelText: {
+    fontSize: 12,
+    color: "#2196F3",
+    fontWeight: "600",
+  },
+  experienceText: {
+    fontSize: 12,
+    color: "#666",
+  },
+  badgesSection: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  badgesContainer: {
+    marginTop: 12,
+  },
+  badgeItem: {
+    alignItems: "center",
+    marginRight: 16,
+    padding: 12,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
+    minWidth: 80,
+  },
+  badgeIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  badgeName: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+  },
+  badgeRarity: {
+    fontSize: 8,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 2,
+  },
+  leaderboardSection: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  leaderboardItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
+  },
+  leaderboardRank: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#2196F3",
+    width: 40,
+  },
+  leaderboardName: {
+    flex: 1,
+    fontSize: 14,
+    color: "#333",
+    marginLeft: 12,
+  },
+  leaderboardLevel: {
+    fontSize: 12,
+    color: "#666",
+    marginRight: 12,
+  },
+  leaderboardReports: {
+    fontSize: 12,
+    color: "#666",
   },
 })

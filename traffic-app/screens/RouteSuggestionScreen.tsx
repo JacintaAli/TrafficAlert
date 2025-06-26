@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useLocation } from "../hooks/useLocation"
 import * as Location from "expo-location"
+import { routeService, Route } from "../services/routeService"
 
 interface RouteSuggestionScreenProps {
   navigation: any
@@ -43,6 +44,7 @@ const dummyRoutes = [
 export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScreenProps) {
   const [destination, setDestination] = useState("")
   const [destinationCoords, setDestinationCoords] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [routes, setRoutes] = useState<Route[]>([])
   const [showRoutes, setShowRoutes] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
 
@@ -66,17 +68,27 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
       const geocoded = await Location.geocodeAsync(destination)
 
       if (geocoded.length > 0) {
-        setDestinationCoords({
+        const destCoords = {
           latitude: geocoded[0].latitude,
           longitude: geocoded[0].longitude,
-        })
+        }
+        setDestinationCoords(destCoords)
+
+        // Get route suggestions using our route service
+        const routeSuggestions = await routeService.getRouteSuggestions(
+          { latitude: location.latitude, longitude: location.longitude },
+          destCoords,
+          true // Get alternatives
+        )
+
+        setRoutes(routeSuggestions)
         setShowRoutes(true)
       } else {
         Alert.alert("Error", "Destination not found. Please try a more specific address.")
       }
     } catch (error) {
-      console.error("Geocoding error:", error)
-      Alert.alert("Error", "Failed to find destination. Please try again.")
+      console.error("Route search error:", error)
+      Alert.alert("Error", "Failed to find routes. Please try again.")
     } finally {
       setSearchLoading(false)
     }
@@ -107,19 +119,8 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
     }
   }
 
-  // Update route distances based on actual coordinates
-  const updatedRoutes =
-    showRoutes && location && destinationCoords
-      ? dummyRoutes.map((route) => ({
-          ...route,
-          distance: `${calculateDistance(
-            location.latitude,
-            location.longitude,
-            destinationCoords.latitude,
-            destinationCoords.longitude,
-          )} km`,
-        }))
-      : dummyRoutes
+  // Use routes from our service or fallback to dummy data
+  const displayRoutes = showRoutes && routes.length > 0 ? routes : dummyRoutes
 
   if (loading) {
     return (
@@ -169,7 +170,7 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
           <View style={styles.routesSection}>
             <Text style={styles.sectionTitle}>Suggested Routes</Text>
 
-            {updatedRoutes.map((route) => (
+            {displayRoutes.map((route) => (
               <TouchableOpacity key={route.id} style={styles.routeCard}>
                 <View style={styles.routeHeader}>
                   <Text style={styles.routeName}>{route.name}</Text>
@@ -193,6 +194,22 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
                       <Text style={styles.incidentText}>
                         {route.incidents} incident{route.incidents > 1 ? "s" : ""}
                       </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Enhanced route info */}
+                <View style={styles.enhancedInfo}>
+                  {route.tollCost && route.tollCost > 0 && (
+                    <View style={styles.costInfo}>
+                      <Ionicons name="card-outline" size={14} color="#666" />
+                      <Text style={styles.costText}>Toll: ${route.tollCost}</Text>
+                    </View>
+                  )}
+                  {route.fuelCost && (
+                    <View style={styles.costInfo}>
+                      <Ionicons name="car-outline" size={14} color="#666" />
+                      <Text style={styles.costText}>Fuel: ${route.fuelCost}</Text>
                     </View>
                   )}
                 </View>
@@ -405,5 +422,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
     marginLeft: 12,
+  },
+  enhancedInfo: {
+    flexDirection: "row",
+    marginTop: 8,
+    gap: 12,
+  },
+  costInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  costText: {
+    fontSize: 12,
+    color: "#666",
   },
 })

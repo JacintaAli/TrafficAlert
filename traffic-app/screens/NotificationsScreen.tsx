@@ -158,9 +158,10 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
           keyExtractor={(item) => item.id}
           refreshing={refreshing}
           onRefresh={handleRefresh}
-        style={styles.list}
-        showsVerticalScrollIndicator={false}
-      />
+          style={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -209,6 +210,7 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+    paddingHorizontal: 16,
   },
   searchContainer: {
     flexDirection: "row",
@@ -235,10 +237,6 @@ const styles = StyleSheet.create({
     color: "#2196F3",
     fontSize: 14,
     fontWeight: "500",
-  },
-  list: {
-    flex: 1,
-    paddingHorizontal: 20,
   },
   notificationItem: {
     backgroundColor: "#f9f9f9",
