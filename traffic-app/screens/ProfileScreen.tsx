@@ -1,44 +1,24 @@
 import { useState, useEffect } from "react"
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, FlatList, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import { userService, UserProfile, Badge } from "../services/userService"
+import { userService, UserProfile } from "../services/userService"
+import { reportService } from "../services/reportService"
 
 interface ProfileScreenProps {
   navigation: any
 }
 
-const userReports = [
-  {
-    id: "1",
-    type: "Car Accident",
-    location: "Wuse 2, Abuja",
-    date: "2024-01-15",
-    status: "Resolved",
-  },
-  {
-    id: "2",
-    type: "Road Construction",
-    location: "Garki Area 1",
-    date: "2024-01-12",
-    status: "Active",
-  },
-  {
-    id: "3",
-    type: "Traffic Jam",
-    location: "Central Business District",
-    date: "2024-01-10",
-    status: "Resolved",
-  },
-]
+
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [leaderboard, setLeaderboard] = useState<any[]>([])
+  const [userReports, setUserReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingReports, setLoadingReports] = useState(false)
 
   useEffect(() => {
     loadUserProfile()
-    loadLeaderboard()
+    loadUserReports()
   }, [])
 
   const loadUserProfile = async () => {
@@ -48,18 +28,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       // Create a demo profile if none exists
       if (!profile) {
         profile = await userService.createProfile("TrafficUser", "user@example.com")
-
-        // Add some demo experience and stats
-        await userService.updateStats({
-          reportsSubmitted: 5,
-          reportsVerified: 3,
-          upvotesReceived: 8,
-          helpfulVotes: 12,
-          distanceTraveled: 150,
-          timesSaved: 45
-        })
-
-        await userService.addExperience(250, "demo_setup")
       }
 
       setUserProfile(profile)
@@ -70,12 +38,74 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     }
   }
 
-  const loadLeaderboard = async () => {
+  const loadUserReports = async () => {
+    setLoadingReports(true)
     try {
-      const leaderboardData = await userService.getLeaderboard()
-      setLeaderboard(leaderboardData)
+      // For demo purposes, let's create some sample user reports
+      // In a real app, you'd filter reports by user ID from the report service
+      const sampleUserReports = [
+        {
+          id: "user-1",
+          type: "Traffic Jam",
+          location: "Wuse 2, Abuja",
+          date: "2024-01-15",
+          status: "Active",
+          severity: "Medium",
+          description: "Heavy traffic due to road construction"
+        },
+        {
+          id: "user-2",
+          type: "Accident",
+          location: "Garki Area 1",
+          date: "2024-01-12",
+          status: "Resolved",
+          severity: "High",
+          description: "Minor collision, cleared by authorities"
+        },
+        {
+          id: "user-3",
+          type: "Construction",
+          location: "Central Business District",
+          date: "2024-01-10",
+          status: "Active",
+          severity: "Low",
+          description: "Road maintenance work in progress"
+        }
+      ]
+
+      setUserReports(sampleUserReports)
     } catch (error) {
-      console.error("Failed to load leaderboard:", error)
+      console.error("Failed to load user reports:", error)
+    } finally {
+      setLoadingReports(false)
+    }
+  }
+
+  const renderReportItem = ({ item }: { item: any }) => (
+    <View style={styles.reportItem}>
+      <View style={styles.reportHeader}>
+        <Text style={styles.reportType}>{item.type}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: item.status === "Active" ? "#4CAF50" : "#9E9E9E" }]}>
+          <Text style={styles.statusText}>{item.status}</Text>
+        </View>
+      </View>
+      <Text style={styles.reportDescription}>{item.description}</Text>
+      <Text style={styles.reportLocation}>📍 {item.location}</Text>
+      <View style={styles.reportFooter}>
+        <Text style={styles.reportDate}>{item.date}</Text>
+        <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(item.severity) }]}>
+          <Text style={styles.severityText}>{item.severity}</Text>
+        </View>
+      </View>
+    </View>
+  )
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'High': return '#f44336'
+      case 'Medium': return '#ff9800'
+      case 'Low': return '#4caf50'
+      default: return '#9e9e9e'
     }
   }
 
@@ -97,25 +127,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     )
   }
 
-  const renderBadgeItem = ({ item }: { item: Badge }) => (
-    <View style={styles.badgeItem}>
-      <Text style={styles.badgeIcon}>{item.icon}</Text>
-      <Text style={styles.badgeName}>{item.name}</Text>
-    </View>
-  )
 
-  const renderReportItem = ({ item }: { item: (typeof userReports)[0] }) => (
-    <View style={styles.reportItem}>
-      <View style={styles.reportHeader}>
-        <Text style={styles.reportType}>{item.type}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: item.status === "Active" ? "#4CAF50" : "#9E9E9E" }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
-      </View>
-      <Text style={styles.reportLocation}>{item.location}</Text>
-      <Text style={styles.reportDate}>{item.date}</Text>
-    </View>
-  )
 
   if (loading) {
     return (
@@ -153,10 +165,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{userProfile.username}</Text>
               <Text style={styles.userEmail}>{userProfile.email}</Text>
-              <View style={styles.levelContainer}>
-                <Text style={styles.levelText}>Level {userProfile.level}</Text>
-                <Text style={styles.experienceText}>{userProfile.experience} XP</Text>
-              </View>
             </View>
             <TouchableOpacity style={styles.editButton}>
               <Ionicons name="create-outline" size={20} color="#2196F3" />
@@ -164,58 +172,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           </View>
         </View>
 
-        <View style={styles.statsSection}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.reportsSubmitted}</Text>
-            <Text style={styles.statLabel}>Reports</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.reportsVerified}</Text>
-            <Text style={styles.statLabel}>Verified</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userProfile.stats.upvotesReceived}</Text>
-            <Text style={styles.statLabel}>Upvotes</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{Math.round(userProfile.stats.distanceTraveled)}</Text>
-            <Text style={styles.statLabel}>km Traveled</Text>
-          </View>
-        </View>
-
-        {/* Badges Section */}
-        <View style={styles.badgesSection}>
-          <Text style={styles.sectionTitle}>Badges ({userProfile.badges.length})</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesContainer}>
-            {userProfile.badges.map((badge) => (
-              <View key={badge.id} style={styles.badgeItem}>
-                <Text style={styles.badgeIcon}>{badge.icon}</Text>
-                <Text style={styles.badgeName}>{badge.name}</Text>
-                <Text style={styles.badgeRarity}>{badge.rarity}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Leaderboard Section */}
-        <View style={styles.leaderboardSection}>
-          <Text style={styles.sectionTitle}>Leaderboard</Text>
-          {leaderboard.slice(0, 5).map((user, index) => (
-            <View key={index} style={styles.leaderboardItem}>
-              <Text style={styles.leaderboardRank}>#{index + 1}</Text>
-              <Text style={styles.leaderboardName}>{user.username}</Text>
-              <Text style={styles.leaderboardLevel}>Level {user.level}</Text>
-              <Text style={styles.leaderboardReports}>{user.reportsSubmitted} reports</Text>
-            </View>
-          ))}
-        </View>
-
         <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="notifications-outline" size={24} color="#666" />
-            <Text style={styles.menuText}>Notifications</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem}>
             <Ionicons name="settings-outline" size={24} color="#666" />
@@ -236,14 +193,28 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           </TouchableOpacity>
         </View>
 
+        {/* My Reports Section */}
         <View style={styles.reportsSection}>
-          <Text style={styles.sectionTitle}>My Reports</Text>
-          <FlatList
-            data={userReports}
-            renderItem={renderReportItem}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-          />
+          <Text style={styles.sectionTitle}>My Reports ({userReports.length})</Text>
+          {loadingReports ? (
+            <View style={styles.loadingReportsContainer}>
+              <Text style={styles.loadingReportsText}>Loading reports...</Text>
+            </View>
+          ) : userReports.length === 0 ? (
+            <View style={styles.emptyReportsContainer}>
+              <Ionicons name="document-outline" size={48} color="#ccc" />
+              <Text style={styles.emptyReportsText}>No reports yet</Text>
+              <Text style={styles.emptyReportsSubtext}>Your submitted traffic reports will appear here</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={userReports}
+              renderItem={renderReportItem}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -335,51 +306,6 @@ const styles = StyleSheet.create({
     color: "#333",
     marginLeft: 16,
   },
-  reportsSection: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 16,
-  },
-  reportItem: {
-    backgroundColor: "#f9f9f9",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-  },
-  reportHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  reportType: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  reportLocation: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 4,
-  },
-  reportDate: {
-    fontSize: 12,
-    color: "#999",
-  },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -431,83 +357,98 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  levelContainer: {
-    flexDirection: "row",
-    marginTop: 4,
-    gap: 12,
-  },
-  levelText: {
-    fontSize: 12,
-    color: "#2196F3",
-    fontWeight: "600",
-  },
-  experienceText: {
-    fontSize: 12,
-    color: "#666",
-  },
-  badgesSection: {
+  reportsSection: {
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  badgesContainer: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 16,
+  },
+  loadingReportsContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadingReportsText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  emptyReportsContainer: {
+    padding: 40,
+    alignItems: "center",
+  },
+  emptyReportsText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
     marginTop: 12,
   },
-  badgeItem: {
-    alignItems: "center",
-    marginRight: 16,
-    padding: 12,
+  emptyReportsSubtext: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  reportItem: {
     backgroundColor: "#f9f9f9",
     borderRadius: 12,
-    minWidth: 80,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#2196F3",
   },
-  badgeIcon: {
-    fontSize: 24,
-    marginBottom: 4,
+  reportHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  badgeName: {
-    fontSize: 10,
+  reportType: {
+    fontSize: 16,
     fontWeight: "600",
     color: "#333",
-    textAlign: "center",
   },
-  badgeRarity: {
-    fontSize: 8,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 2,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  leaderboardSection: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+  statusText: {
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "600",
   },
-  leaderboardItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f5f5f5",
-  },
-  leaderboardRank: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#2196F3",
-    width: 40,
-  },
-  leaderboardName: {
-    flex: 1,
+  reportDescription: {
     fontSize: 14,
-    color: "#333",
-    marginLeft: 12,
+    color: "#555",
+    marginBottom: 8,
+    lineHeight: 20,
   },
-  leaderboardLevel: {
+  reportLocation: {
     fontSize: 12,
     color: "#666",
-    marginRight: 12,
+    marginBottom: 8,
   },
-  leaderboardReports: {
+  reportFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  reportDate: {
     fontSize: 12,
-    color: "#666",
+    color: "#999",
+  },
+  severityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  severityText: {
+    fontSize: 10,
+    color: "#fff",
+    fontWeight: "600",
   },
 })
