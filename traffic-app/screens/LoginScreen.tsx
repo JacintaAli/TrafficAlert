@@ -34,7 +34,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           <View style={styles.header}>
             <Ionicons name="car-sport" size={60} color="#2196F3" />
             <Text style={styles.title}>TrafficAlert</Text>
-            <Text style={styles.subtitle}>Crowdsourced Traffic Reporting</Text>
+            <Text style={styles.subtitle}>Log in into your account!</Text>
           </View>
 
           <View style={styles.form}>
@@ -75,7 +75,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
               <Text style={styles.signUpText}>Sign Up</Text>
             </TouchableOpacity>
           </View>

@@ -1,10 +1,14 @@
+"use client"
+
 import { useEffect } from "react"
 import { NavigationContainer } from "@react-navigation/native"
 import { createStackNavigator } from "@react-navigation/stack"
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { Ionicons } from "@expo/vector-icons"
 
+import OnboardingScreen from "./screens/OnboardingScreen"
 import LoginScreen from "./screens/LoginScreen"
+import SignUpScreen from "./screens/SignUpScreen"
 import HomeScreen from "./screens/HomeScreen"
 import ReportIncidentScreen from "./screens/ReportIncidentScreen"
 import NotificationsScreen from "./screens/NotificationsScreen"
@@ -77,8 +81,10 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
+      <Stack.Navigator initialRouteName="Onboarding">
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen
           name="ReportIncident"
