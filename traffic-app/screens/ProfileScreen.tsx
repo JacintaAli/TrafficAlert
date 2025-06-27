@@ -166,7 +166,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               <Text style={styles.userName}>{userProfile.username}</Text>
               <Text style={styles.userEmail}>{userProfile.email}</Text>
             </View>
-            <TouchableOpacity style={styles.editButton}>
+            <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate("EditProfile")}>
               <Ionicons name="create-outline" size={20} color="#2196F3" />
             </TouchableOpacity>
           </View>
@@ -186,7 +186,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("About")}>
             <Ionicons name="information-circle-outline" size={24} color="#666" />
             <Text style={styles.menuText}>About</Text>
             <Ionicons name="chevron-forward" size={20} color="#666" />

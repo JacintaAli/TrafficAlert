@@ -13,6 +13,8 @@ import HomeScreen from "./screens/HomeScreen"
 import ReportIncidentScreen from "./screens/ReportIncidentScreen"
 import NotificationsScreen from "./screens/NotificationsScreen"
 import ProfileScreen from "./screens/ProfileScreen"
+import EditProfileScreen from "./screens/EditProfileScreen"
+import AboutScreen from "./screens/AboutScreen"
 import RouteSuggestionScreen from "./screens/RouteSuggestionScreen"
 import AllReportsScreen from "./screens/AllReportsScreen"
 
@@ -104,6 +106,8 @@ export default function App() {
             headerTintColor: "#000",
           }}
         />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   )

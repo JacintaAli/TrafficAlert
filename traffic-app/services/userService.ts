@@ -286,6 +286,17 @@ class UserService {
     ].sort((a, b) => b.level - a.level)
   }
 
+  // Update user profile
+  async updateProfile(updatedProfile: UserProfile): Promise<void> {
+    try {
+      this.currentUser = updatedProfile
+      await this.saveProfile()
+    } catch (error) {
+      console.error('Error updating user profile:', error)
+      throw error
+    }
+  }
+
   // Clear user data (logout)
   async clearUserData(): Promise<void> {
     this.currentUser = null
