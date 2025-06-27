@@ -15,12 +15,14 @@ import {
 import { Ionicons } from "@expo/vector-icons"
 import * as ImagePicker from 'expo-image-picker'
 import { userService, UserProfile } from "../services/userService"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface EditProfileScreenProps {
   navigation: any
 }
 
 export default function EditProfileScreen({ navigation }: EditProfileScreenProps) {
+  const { theme } = useTheme()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
@@ -127,23 +129,23 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.loadingContainer}>
-          <Ionicons name="person-circle" size={64} color="#ccc" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
+          <Ionicons name="person-circle" size={64} color={theme.colors.border} />
+          <Text style={[styles.loadingText, { color: theme.colors.text }]}>Loading profile...</Text>
         </View>
       </SafeAreaView>
     )
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={saving}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Edit Profile</Text>
+        <TouchableOpacity onPress={handleSave} style={[styles.saveButton, { backgroundColor: theme.colors.primary }]} disabled={saving}>
           <Text style={[styles.saveButtonText, saving && styles.saveButtonTextDisabled]}>
             {saving ? "Saving..." : "Save"}
           </Text>
@@ -153,7 +155,7 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Profile Picture Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profile Picture</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Profile Picture</Text>
           <View style={styles.profilePictureContainer}>
             <TouchableOpacity onPress={pickImage} style={styles.profilePictureButton}>
               {profileImage ? (

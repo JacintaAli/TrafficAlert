@@ -12,12 +12,14 @@ import {
   Alert,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface AboutScreenProps {
   navigation: any
 }
 
 export default function AboutScreen({ navigation }: AboutScreenProps) {
+  const { theme } = useTheme()
   const appVersion = "1.0.0"
   const buildNumber = "1"
 
@@ -53,12 +55,12 @@ export default function AboutScreen({ navigation }: AboutScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>About</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>About</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -66,16 +68,16 @@ export default function AboutScreen({ navigation }: AboutScreenProps) {
         {/* App Info Section */}
         <View style={styles.section}>
           <View style={styles.appLogoContainer}>
-            <Ionicons name="car-sport" size={80} color="#2196F3" />
-            <Text style={styles.appName}>TrafficAlert</Text>
-            <Text style={styles.appTagline}>Crowdsourced Traffic Reporting</Text>
-            <Text style={styles.appVersion}>Version {appVersion} (Build {buildNumber})</Text>
+            <Ionicons name="car-sport" size={80} color={theme.colors.primary} />
+            <Text style={[styles.appName, { color: theme.colors.text }]}>TrafficAlert</Text>
+            <Text style={[styles.appTagline, { color: theme.colors.textSecondary }]}>Crowdsourced Traffic Reporting</Text>
+            <Text style={[styles.appVersion, { color: theme.colors.textSecondary }]}>Version {appVersion} (Build {buildNumber})</Text>
           </View>
         </View>
 
         {/* Description Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About TrafficAlert</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>About TrafficAlert</Text>
           <Text style={styles.description}>
             TrafficAlert is a community-driven traffic reporting app that helps drivers stay informed about road conditions, 
             accidents, construction, and other traffic incidents in real-time. By sharing and receiving traffic updates, 
@@ -115,7 +117,7 @@ export default function AboutScreen({ navigation }: AboutScreenProps) {
             Developed with ❤️ for safer roads and better commutes.
           </Text>
           <Text style={styles.copyrightText}>
-            © 2024 TrafficAlert. All rights reserved.
+            ©Copyright 2025 TrafficAlert. All rights reserved.
           </Text>
         </View>
 
@@ -126,7 +128,7 @@ export default function AboutScreen({ navigation }: AboutScreenProps) {
             <Text style={styles.techItem}>App Version: {appVersion}</Text>
             <Text style={styles.techItem}>Build Number: {buildNumber}</Text>
             <Text style={styles.techItem}>Platform: React Native</Text>
-            <Text style={styles.techItem}>Last Updated: June 2025</Text>
+            <Text style={styles.techItem}>Last Updated: July 2025</Text>
             <Text style={styles.techItem}>Developers: Ivy & Jacinta</Text>
           </View>
         </View>

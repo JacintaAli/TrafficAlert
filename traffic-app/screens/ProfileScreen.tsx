@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Fla
 import { Ionicons } from "@expo/vector-icons"
 import { userService, UserProfile } from "../services/userService"
 import { reportService } from "../services/reportService"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface ProfileScreenProps {
   navigation: any
@@ -11,6 +12,7 @@ interface ProfileScreenProps {
 
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
+  const { theme, isDark, toggleTheme } = useTheme()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [userReports, setUserReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -154,17 +156,36 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     )
   }
 
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      ...styles.container,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      ...styles.header,
+      borderBottomColor: theme.colors.border,
+    },
+    userName: {
+      ...styles.userName,
+      color: theme.colors.text,
+    },
+    userEmail: {
+      ...styles.userEmail,
+      color: theme.colors.textSecondary,
+    },
+  })
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={dynamicStyles.container}>
       <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
+        <View style={dynamicStyles.header}>
           <View style={styles.profileSection}>
             <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={40} color="#666" />
+              <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{userProfile.username}</Text>
-              <Text style={styles.userEmail}>{userProfile.email}</Text>
+              <Text style={dynamicStyles.userName}>{userProfile.username}</Text>
+              <Text style={dynamicStyles.userEmail}>{userProfile.email}</Text>
             </View>
             <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate("EditProfile")}>
               <Ionicons name="create-outline" size={20} color="#2196F3" />
@@ -174,10 +195,24 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         <View style={styles.menuSection}>
 
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="settings-outline" size={24} color="#666" />
-            <Text style={styles.menuText}>Settings</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
+          <TouchableOpacity style={styles.menuItem} onPress={toggleTheme}>
+            <Ionicons
+              name={isDark ? "sunny-outline" : "moon-outline"}
+              size={24}
+              color={theme.colors.textSecondary}
+            />
+            <Text style={[styles.menuText, { color: theme.colors.text }]}>
+              {isDark ? "Light Mode" : "Dark Mode"}
+            </Text>
+            <View style={[styles.themeToggle, { backgroundColor: isDark ? theme.colors.primary : theme.colors.border }]}>
+              <View style={[
+                styles.themeToggleThumb,
+                {
+                  backgroundColor: theme.colors.background,
+                  transform: [{ translateX: isDark ? 20 : 2 }]
+                }
+              ]} />
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem}>
@@ -450,5 +485,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#fff",
     fontWeight: "600",
+  },
+  themeToggle: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    position: "relative",
+  },
+  themeToggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    position: "absolute",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
 })

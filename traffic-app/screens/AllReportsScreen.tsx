@@ -1,5 +1,6 @@
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, Image } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface AllReportsScreenProps {
   navigation: any
@@ -41,39 +42,41 @@ const dummyReports = [
 ]
 
 export default function AllReportsScreen({ navigation }: AllReportsScreenProps) {
+  const { theme } = useTheme()
+
   const renderReportItem = ({ item }: { item: (typeof dummyReports)[0] }) => (
-    <View style={styles.reportItem}>
+    <View style={[styles.reportItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
       {item.image && <Image source={{ uri: item.image }} style={styles.reportImage} />}
 
       <View style={styles.reportContent}>
         <View style={styles.reportHeader}>
-          <Ionicons name="person-circle-outline" size={24} color="#666" />
-          <Text style={styles.reportType}>{item.type}</Text>
+          <Ionicons name="person-circle-outline" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.reportType, { color: theme.colors.text }]}>{item.type}</Text>
         </View>
 
-        <Text style={styles.reportDescription}>{item.description}</Text>
+        <Text style={[styles.reportDescription, { color: theme.colors.textSecondary }]}>{item.description}</Text>
 
         <TouchableOpacity style={styles.viewCommentsButton}>
-          <Text style={styles.viewCommentsText}>View all {item.comments} comments</Text>
+          <Text style={[styles.viewCommentsText, { color: theme.colors.primary }]}>View all {item.comments} comments</Text>
         </TouchableOpacity>
 
         <View style={styles.reportActions}>
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="arrow-up" size={20} color="#4CAF50" />
-            <Text style={styles.actionText}>{item.upvotes}</Text>
+            <Ionicons name="arrow-up" size={20} color={theme.colors.success} />
+            <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.upvotes}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="arrow-down" size={20} color="#f44336" />
-            <Text style={styles.actionText}>{item.downvotes}</Text>
+            <Ionicons name="arrow-down" size={20} color={theme.colors.error} />
+            <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.downvotes}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="chatbubble-outline" size={20} color="#666" />
+            <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="share-outline" size={20} color="#666" />
+            <Ionicons name="share-outline" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -81,18 +84,18 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
   )
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
+          <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>All Reports</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>All Reports</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-        <Text style={styles.searchPlaceholder}>Ademola Adetokunbo Cresent, Wuse 2,...</Text>
+      <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+        <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={styles.searchIcon} />
+        <Text style={[styles.searchPlaceholder, { color: theme.colors.textSecondary }]}>Ademola Adetokunbo Cresent, Wuse 2,...</Text>
       </View>
 
       <FlatList

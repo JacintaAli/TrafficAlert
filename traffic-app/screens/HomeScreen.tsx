@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useLocation } from "../hooks/useLocation"
 import MapComponent from "../components/MapComponent"
 import { reportService } from "../services/reportService"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface HomeScreenProps {
   navigation: any
@@ -35,6 +36,7 @@ const generateNearbyReports = (userLocation: { latitude: number; longitude: numb
 }
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
+  const { theme } = useTheme()
   const { location, loading, error, refreshLocation } = useLocation()
   const [reports, setReports] = useState<any[]>([])
   const [loadingReports, setLoadingReports] = useState(false)
@@ -81,10 +83,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.loadingContainer}>
-          <Ionicons name="location" size={48} color="#2196F3" />
-          <Text style={styles.loadingText}>Getting your location...</Text>
+          <Ionicons name="location" size={48} color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.text }]}>Getting your location...</Text>
         </View>
       </SafeAreaView>
     )
@@ -105,18 +107,21 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar
+        barStyle={theme.isDark ? "light-content" : "dark-content"}
+        backgroundColor={theme.colors.background}
+      />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>TrafficAlert</Text>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>TrafficAlert</Text>
         <View style={styles.headerRight}>
           {location?.address && (
-            <Text style={styles.locationText} numberOfLines={1}>
+            <Text style={[styles.locationText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
               {location.address}
             </Text>
           )}
-          <TouchableOpacity style={styles.reportsButton} onPress={() => navigation.navigate("AllReports")}>
+          <TouchableOpacity style={[styles.reportsButton, { backgroundColor: theme.colors.primary }]} onPress={() => navigation.navigate("AllReports")}>
             <Text style={styles.reportsButtonText}>Reports</Text>
           </TouchableOpacity>
         </View>

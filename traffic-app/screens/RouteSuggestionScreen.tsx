@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useLocation } from "../hooks/useLocation"
 import * as Location from "expo-location"
 import { routeService, Route } from "../services/routeService"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface RouteSuggestionScreenProps {
   navigation: any
@@ -42,6 +43,7 @@ const dummyRoutes = [
 ]
 
 export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScreenProps) {
+  const { theme } = useTheme()
   const [destination, setDestination] = useState("")
   const [destinationCoords, setDestinationCoords] = useState<{ latitude: number; longitude: number } | null>(null)
   const [routes, setRoutes] = useState<Route[]>([])
@@ -134,23 +136,24 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Route Suggestions</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Route Suggestions</Text>
       </View>
 
       <ScrollView style={styles.content}>
         <View style={styles.searchSection}>
-          <View style={styles.locationInput}>
-            <Ionicons name="location" size={20} color="#4CAF50" />
-            <Text style={styles.currentLocation}>{location?.address || "Current Location"}</Text>
+          <View style={[styles.locationInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Ionicons name="location" size={20} color={theme.colors.success} />
+            <Text style={[styles.currentLocation, { color: theme.colors.text }]}>{location?.address || "Current Location"}</Text>
           </View>
 
-          <View style={styles.destinationInput}>
-            <Ionicons name="search" size={20} color="#666" />
+          <View style={[styles.destinationInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.colors.text }]}
               placeholder="Where to?"
+              placeholderTextColor={theme.colors.textSecondary}
               value={destination}
               onChangeText={setDestination}
               onSubmitEditing={handleSearch}
@@ -158,7 +161,7 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
           </View>
 
           <TouchableOpacity
-            style={[styles.searchButton, searchLoading && styles.searchButtonDisabled]}
+            style={[styles.searchButton, { backgroundColor: theme.colors.primary }, searchLoading && styles.searchButtonDisabled]}
             onPress={handleSearch}
             disabled={searchLoading || !location}
           >

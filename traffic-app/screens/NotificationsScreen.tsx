@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { notificationService, NotificationData } from "../services/notificationService"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface NotificationsScreenProps {
   navigation: any
@@ -51,6 +52,7 @@ const dummyNotifications = [
 ]
 
 export default function NotificationsScreen({ navigation }: NotificationsScreenProps) {
+  const { theme } = useTheme()
   const [notifications, setNotifications] = useState<NotificationData[]>([])
   const [refreshing, setRefreshing] = useState(false)
 
@@ -137,19 +139,19 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
   )
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Notifications</Text>
         <TouchableOpacity onPress={handleMarkAllAsRead}>
-          <Text style={styles.markAllReadText}>Mark All Read</Text>
+          <Text style={[styles.markAllReadText, { color: theme.colors.primary }]}>Mark All Read</Text>
         </TouchableOpacity>
       </View>
 
       {notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="notifications-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>No notifications yet</Text>
-          <Text style={styles.emptySubtext}>You'll see traffic alerts and updates here</Text>
+          <Ionicons name="notifications-outline" size={64} color={theme.colors.border} />
+          <Text style={[styles.emptyText, { color: theme.colors.text }]}>No notifications yet</Text>
+          <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>You'll see traffic alerts and updates here</Text>
         </View>
       ) : (
         <FlatList

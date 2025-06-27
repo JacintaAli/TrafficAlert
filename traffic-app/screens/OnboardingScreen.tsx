@@ -50,7 +50,7 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
       // Phase 3: Car drives back from right to slightly left of center and scales down
       Animated.parallel([
         Animated.timing(carPosition, {
-          toValue: width / 2 - 190, // Move a bit more to the left
+          toValue: width / 2 - 200, // Move a bit more to the left
           duration: 1500,
           useNativeDriver: true,
         }),

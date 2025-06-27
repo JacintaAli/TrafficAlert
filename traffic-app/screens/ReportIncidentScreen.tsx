@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useLocation } from "../hooks/useLocation"
 import MapComponent from "../components/MapComponent"
 import { reportService } from "../services/reportService"
+import { useTheme } from "../contexts/ThemeContext"
 
 interface ReportIncidentScreenProps {
   navigation: any
@@ -18,7 +19,6 @@ const incidentTypes = [
   { id: "construction", label: "Construction", icon: "construct" },
   { id: "traffic", label: "Traffic Jam", icon: "car" },
   { id: "police", label: "Police", icon: "shield" },
-  { id: "camera", label: "Speed Camera", icon: "camera" },
 ]
 
 const severityLevels = [
@@ -28,6 +28,7 @@ const severityLevels = [
 ]
 
 export default function ReportIncidentScreen({ navigation, route }: ReportIncidentScreenProps) {
+  const { theme } = useTheme()
   const [selectedType, setSelectedType] = useState("")
   const [selectedSeverity, setSelectedSeverity] = useState("medium")
   const [description, setDescription] = useState("")
@@ -199,7 +200,7 @@ export default function ReportIncidentScreen({ navigation, route }: ReportIncide
             </View>
             <TextInput
               style={styles.textArea}
-              placeholder="Enter description here"
+              placeholder="Enter description here..."
               value={description}
               onChangeText={setDescription}
               multiline

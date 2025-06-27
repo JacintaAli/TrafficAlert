@@ -22,10 +22,15 @@ import AllReportsScreen from "./screens/AllReportsScreen"
 import { notificationService } from "./services/notificationService"
 import { userService } from "./services/userService"
 
+// Import theme context
+import { ThemeProvider, useTheme } from "./contexts/ThemeContext"
+
 const Stack = createStackNavigator()
 const Tab = createBottomTabNavigator()
 
 function MainTabs() {
+  const { theme } = useTheme()
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -46,8 +51,12 @@ function MainTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />
         },
-        tabBarActiveTintColor: "#2196F3",
-        tabBarInactiveTintColor: "gray",
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: theme.colors.card,
+          borderTopColor: theme.colors.border,
+        },
         headerShown: false,
       })}
     >
@@ -56,6 +65,43 @@ function MainTabs() {
       <Tab.Screen name="Alerts" component={NotificationsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
+  )
+}
+
+function ThemedNavigator() {
+  const { theme } = useTheme()
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Onboarding">
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="ReportIncident"
+          component={ReportIncidentScreen}
+          options={{
+            title: "Report Incident",
+            headerStyle: { backgroundColor: theme.colors.card },
+            headerTintColor: theme.colors.text,
+            headerTitleStyle: { color: theme.colors.text },
+          }}
+        />
+        <Stack.Screen
+          name="AllReports"
+          component={AllReportsScreen}
+          options={{
+            title: "All Reports",
+            headerStyle: { backgroundColor: theme.colors.card },
+            headerTintColor: theme.colors.text,
+            headerTitleStyle: { color: theme.colors.text },
+          }}
+        />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
+      </Stack.Navigator>
+    </NavigationContainer>
   )
 }
 
@@ -82,33 +128,8 @@ export default function App() {
   }, [])
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Onboarding">
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-        <Stack.Screen
-          name="ReportIncident"
-          component={ReportIncidentScreen}
-          options={{
-            title: "Report Incident",
-            headerStyle: { backgroundColor: "#fff" },
-            headerTintColor: "#000",
-          }}
-        />
-        <Stack.Screen
-          name="AllReports"
-          component={AllReportsScreen}
-          options={{
-            title: "All Reports",
-            headerStyle: { backgroundColor: "#fff" },
-            headerTintColor: "#000",
-          }}
-        />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <ThemeProvider>
+      <ThemedNavigator />
+    </ThemeProvider>
   )
 }
