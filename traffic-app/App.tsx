@@ -20,6 +20,7 @@ import AboutScreen from "./screens/AboutScreen"
 import HelpSupportScreen from "./screens/HelpSupportScreen"
 import RouteSuggestionScreen from "./screens/RouteSuggestionScreen"
 import AllReportsScreen from "./screens/AllReportsScreen"
+import ReportDetailsScreen from "./screens/ReportDetailsScreen"
 
 // Import services
 import { notificationService } from "./services/notificationService"
@@ -106,6 +107,7 @@ function ThemedNavigator() {
         <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ReportDetails" component={ReportDetailsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   )

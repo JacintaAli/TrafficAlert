@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, Image } from "react-native"
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, Image, Share, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTheme } from "../contexts/ThemeContext"
 
@@ -44,6 +44,19 @@ const dummyReports = [
 export default function AllReportsScreen({ navigation }: AllReportsScreenProps) {
   const { theme } = useTheme()
 
+  const handleShare = async (report: typeof dummyReports[0]) => {
+    try {
+      const shareContent = {
+        message: `Traffic Alert: ${report.type}\n\n${report.description}\n\nShared via TrafficAlert app`,
+        title: "Traffic Alert",
+      }
+
+      await Share.share(shareContent)
+    } catch (error) {
+      Alert.alert("Error", "Failed to share report")
+    }
+  }
+
   const renderReportItem = ({ item }: { item: (typeof dummyReports)[0] }) => (
     <View style={[styles.reportItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
       {item.image && <Image source={{ uri: item.image }} style={styles.reportImage} />}
@@ -56,7 +69,10 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
 
         <Text style={[styles.reportDescription, { color: theme.colors.textSecondary }]}>{item.description}</Text>
 
-        <TouchableOpacity style={styles.viewCommentsButton}>
+        <TouchableOpacity
+          style={styles.viewCommentsButton}
+          onPress={() => navigation.navigate("ReportDetails", { report: item })}
+        >
           <Text style={[styles.viewCommentsText, { color: theme.colors.primary }]}>View all {item.comments} comments</Text>
         </TouchableOpacity>
 
@@ -71,11 +87,17 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
             <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.downvotes}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate("ReportDetails", { report: item })}
+          >
             <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleShare(item)}
+          >
             <Ionicons name="share-outline" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -85,13 +107,13 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
+      {/* <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>All Reports</Text>
         <View style={{ width: 24 }} />
-      </View>
+      </View> */}
 
       <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={styles.searchIcon} />
