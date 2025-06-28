@@ -9,12 +9,15 @@ import { Ionicons } from "@expo/vector-icons"
 import OnboardingScreen from "./screens/OnboardingScreen"
 import LoginScreen from "./screens/LoginScreen"
 import SignUpScreen from "./screens/SignUpScreen"
+import ForgotPasswordScreen from "./screens/ForgotPasswordScreen"
+import ChangePasswordScreen from "./screens/ChangePasswordScreen"
 import HomeScreen from "./screens/HomeScreen"
 import ReportIncidentScreen from "./screens/ReportIncidentScreen"
 import NotificationsScreen from "./screens/NotificationsScreen"
 import ProfileScreen from "./screens/ProfileScreen"
 import EditProfileScreen from "./screens/EditProfileScreen"
 import AboutScreen from "./screens/AboutScreen"
+import HelpSupportScreen from "./screens/HelpSupportScreen"
 import RouteSuggestionScreen from "./screens/RouteSuggestionScreen"
 import AllReportsScreen from "./screens/AllReportsScreen"
 
@@ -77,6 +80,7 @@ function ThemedNavigator() {
         <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen
           name="ReportIncident"
@@ -100,6 +104,8 @@ function ThemedNavigator() {
         />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
         <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   )
