@@ -10,6 +10,8 @@ import OnboardingScreen from "./screens/OnboardingScreen"
 import LoginScreen from "./screens/LoginScreen"
 import SignUpScreen from "./screens/SignUpScreen"
 import ForgotPasswordScreen from "./screens/ForgotPasswordScreen"
+import OTPVerificationScreen from "./screens/OTPVerificationScreen"
+import ResetPasswordScreen from "./screens/ResetPasswordScreen"
 import ChangePasswordScreen from "./screens/ChangePasswordScreen"
 import HomeScreen from "./screens/HomeScreen"
 import ReportIncidentScreen from "./screens/ReportIncidentScreen"
@@ -82,6 +84,8 @@ function ThemedNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen
           name="ReportIncident"

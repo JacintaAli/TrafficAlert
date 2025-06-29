@@ -38,8 +38,8 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
       return
     }
 
-    // Navigate to main app (no actual authentication)
-    navigation.replace("Main")
+    // Navigate to OTP verification
+    navigation.navigate("OTPVerification", { email, type: "signup" })
   }
 
   const handleBackToLogin = () => {

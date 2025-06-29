@@ -46,14 +46,14 @@ export default function ForgotPasswordScreen({ navigation }: ForgotPasswordScree
       await new Promise(resolve => setTimeout(resolve, 2000))
       
       setEmailSent(true)
-      
+
       Alert.alert(
-        "Reset Link Sent!",
-        "We've sent a password reset link to your email address. Please check your inbox and follow the instructions.",
+        "OTP Sent!",
+        "We've sent a 6-digit verification code to your email address.",
         [
           {
             text: "OK",
-            onPress: () => navigation.goBack()
+            onPress: () => navigation.navigate("OTPVerification", { email, type: "forgot-password" })
           }
         ]
       )
