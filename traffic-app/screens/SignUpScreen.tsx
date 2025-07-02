@@ -11,8 +11,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { userService } from "../services/userService"
 
 interface SignUpScreenProps {
   navigation: any
@@ -25,21 +28,58 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     // Basic validation
-    if (!fullName || !email || !password || !confirmPassword) {
-      alert("Please fill in all fields")
-      return
-    }
-    
-    if (password !== confirmPassword) {
-      alert("Passwords don't match")
+    if (!fullName.trim()) {
+      Alert.alert("Error", "Please enter your full name")
       return
     }
 
-    // Navigate to OTP verification
-    navigation.navigate("OTPVerification", { email, type: "signup" })
+    if (!email.trim()) {
+      Alert.alert("Error", "Please enter your email address")
+      return
+    }
+
+    if (!password.trim()) {
+      Alert.alert("Error", "Please enter a password")
+      return
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters long")
+      return
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords don't match")
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const result = await userService.register({
+        name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        password: password
+      })
+
+      if (result.success) {
+        Alert.alert(
+          "Success",
+          "Account created successfully! You can now start using TrafficAlert.",
+          [{ text: "OK", onPress: () => navigation.replace("Main") }]
+        )
+      } else {
+        Alert.alert("Registration Failed", result.message || "Failed to create account")
+      }
+    } catch (error) {
+      Alert.alert("Error", "Network error. Please check your connection and try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleBackToLogin = () => {
@@ -66,6 +106,7 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
+                  editable={!loading}
                 />
               </View>
 
@@ -78,6 +119,7 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  editable={!loading}
                 />
               </View>
 
@@ -89,8 +131,13 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
+                  editable={!loading}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                  disabled={loading}
+                >
                   <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#666" />
                 </TouchableOpacity>
               </View>
@@ -103,14 +150,27 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}
+                  editable={!loading}
                 />
-                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeIcon}
+                  disabled={loading}
+                >
                   <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#666" />
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-                <Text style={styles.signUpButtonText}>Create Account</Text>
+              <TouchableOpacity
+                style={[styles.signUpButton, loading && styles.signUpButtonDisabled]}
+                onPress={handleSignUp}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.signUpButtonText}>Create Account</Text>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -191,6 +251,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 10,
+  },
+  signUpButtonDisabled: {
+    backgroundColor: "#ccc",
   },
   signUpButtonText: {
     color: "#fff",

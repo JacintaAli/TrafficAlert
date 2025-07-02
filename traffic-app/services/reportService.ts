@@ -1,6 +1,8 @@
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { Alert } from 'react-native'
+import apiService from './apiService'
+import { userService } from './userService'
 
 export interface TrafficReport {
   id: string
@@ -29,67 +31,272 @@ export interface Comment {
 
 class ReportService {
   private reports: TrafficReport[] = []
-  private baseUrl = 'https://your-api-endpoint.com/api' // Replace with your backend
 
-  // Submit a new report
+  // Submit a new report to backend
   async submitReport(reportData: Omit<TrafficReport, 'id' | 'timestamp' | 'verified' | 'upvotes' | 'downvotes' | 'comments'>): Promise<TrafficReport> {
     try {
-      const report: TrafficReport = {
-        ...reportData,
-        id: Date.now().toString(),
-        timestamp: new Date(),
-        verified: false,
-        upvotes: 0,
-        downvotes: 0,
-        comments: [],
-        expiresAt: this.calculateExpiration(reportData.type)
+      // Get current user
+      const currentUser = await userService.getCurrentUser()
+      console.log('Current user:', currentUser ? 'Logged in' : 'Not logged in')
+
+      if (!currentUser) {
+        throw new Error('User not authenticated. Please log in first.')
       }
 
-      // In a real app, send to backend
-      // const response = await fetch(`${this.baseUrl}/reports`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(report)
-      // })
+      // Prepare report data for backend (match what validation schema expects)
+      const backendReportData = {
+        type: reportData.type,
+        severity: reportData.severity,
+        description: reportData.description,
+        location: {
+          latitude: reportData.latitude,
+          longitude: reportData.longitude,
+          address: reportData.address || `${reportData.latitude}, ${reportData.longitude}`
+        }
+        // Note: metadata is not allowed by validation schema, so removed
+      }
 
-      this.reports.push(report)
-      return report
+      console.log('Sending report data:', JSON.stringify(backendReportData, null, 2));
+      console.log('Data types check:', {
+        'type': typeof backendReportData.type,
+        'severity': typeof backendReportData.severity,
+        'description': typeof backendReportData.description,
+        'latitude': typeof backendReportData.location.latitude,
+        'longitude': typeof backendReportData.location.longitude,
+        'latitude_value': backendReportData.location.latitude,
+        'longitude_value': backendReportData.location.longitude
+      });
+
+      // Validate data before sending
+      if (!backendReportData.type) {
+        throw new Error('Report type is required');
+      }
+      if (!backendReportData.description || backendReportData.description.length < 10) {
+        throw new Error('Description must be at least 10 characters');
+      }
+      if (!backendReportData.location?.latitude || !backendReportData.location?.longitude) {
+        throw new Error('Valid location coordinates are required');
+      }
+
+      // Prepare images for upload
+      const imageFiles = []
+      for (const imageUri of reportData.images) {
+        if (imageUri) {
+          const imageFile = {
+            uri: imageUri,
+            type: 'image/jpeg',
+            name: `report_image_${Date.now()}.jpg`
+          }
+          imageFiles.push(imageFile)
+        }
+      }
+
+      // Submit to backend
+      console.log('Number of images:', imageFiles.length);
+      const response = await apiService.createReport(backendReportData, imageFiles)
+
+      if (response.success) {
+        // Convert backend response to our TrafficReport format
+        const backendReport = response.data.report
+        const report: TrafficReport = {
+          id: backendReport._id,
+          type: backendReport.type,
+          latitude: backendReport.latitude || backendReport.location.coordinates[1],
+          longitude: backendReport.longitude || backendReport.location.coordinates[0],
+          description: backendReport.description,
+          severity: backendReport.severity,
+          images: backendReport.images?.map((img: any) => img.url) || [],
+          timestamp: new Date(backendReport.createdAt),
+          userId: backendReport.user._id || backendReport.user,
+          verified: backendReport.verification?.isVerified || false,
+          upvotes: backendReport.interactions?.helpfulCount || 0,
+          downvotes: 0, // Not implemented in backend yet
+          comments: backendReport.interactions?.comments?.map((comment: any) => ({
+            id: comment._id,
+            userId: comment.user._id || comment.user,
+            username: comment.user.name || 'Unknown',
+            text: comment.text,
+            timestamp: new Date(comment.createdAt)
+          })) || [],
+          expiresAt: new Date(backendReport.expiresAt)
+        }
+
+        // Add to local cache
+        this.reports.unshift(report)
+
+        return report
+      } else {
+        throw new Error(response.message || 'Failed to submit report')
+      }
     } catch (error) {
-      throw new Error('Failed to submit report')
+      console.error('Submit report error:', error)
+      throw error
     }
   }
 
-  // Get nearby reports
+  // Get nearby reports from backend
   async getNearbyReports(latitude: number, longitude: number, radiusKm: number = 10): Promise<TrafficReport[]> {
-    // Filter reports within radius
-    return this.reports.filter(report => {
-      const distance = this.calculateDistance(latitude, longitude, report.latitude, report.longitude)
-      return distance <= radiusKm && !this.isExpired(report)
-    })
+    try {
+      const radiusMeters = radiusKm * 1000 // Convert to meters
+      const response = await apiService.getNearbyReports(latitude, longitude, radiusMeters)
+
+      if (response.success) {
+        // Convert backend reports to our TrafficReport format
+        const reports: TrafficReport[] = response.data.reports.map((backendReport: any) => ({
+          id: backendReport._id,
+          type: backendReport.type,
+          latitude: backendReport.latitude || backendReport.location.coordinates[1],
+          longitude: backendReport.longitude || backendReport.location.coordinates[0],
+          description: backendReport.description,
+          severity: backendReport.severity,
+          images: backendReport.images?.map((img: any) => img.url) || [],
+          timestamp: new Date(backendReport.createdAt),
+          userId: backendReport.user._id || backendReport.user,
+          verified: backendReport.verification?.isVerified || false,
+          upvotes: backendReport.interactions?.helpfulCount || 0,
+          downvotes: 0, // Not implemented in backend yet
+          comments: backendReport.interactions?.comments?.map((comment: any) => ({
+            id: comment._id,
+            userId: comment.user._id || comment.user,
+            username: comment.user.name || 'Unknown',
+            text: comment.text,
+            timestamp: new Date(comment.createdAt)
+          })) || [],
+          expiresAt: new Date(backendReport.expiresAt)
+        }))
+
+        // Update local cache
+        this.reports = reports
+        return reports
+      } else {
+        throw new Error(response.message || 'Failed to fetch reports')
+      }
+    } catch (error) {
+      console.error('Get nearby reports error:', error)
+      // Return cached reports as fallback
+      return this.reports.filter(report => {
+        const distance = this.calculateDistance(latitude, longitude, report.latitude, report.longitude)
+        return distance <= radiusKm && !this.isExpired(report)
+      })
+    }
   }
 
-  // Vote on a report
-  async voteOnReport(reportId: string, vote: 'up' | 'down'): Promise<void> {
-    const report = this.reports.find(r => r.id === reportId)
-    if (report) {
-      if (vote === 'up') {
-        report.upvotes++
+  // Get all reports from backend
+  async getAllReports(): Promise<TrafficReport[]> {
+    try {
+      const response = await apiService.getReports()
+
+      if (response.success) {
+        // Convert backend reports to our TrafficReport format
+        const reports: TrafficReport[] = response.data.reports.map((backendReport: any) => ({
+          id: backendReport._id,
+          type: backendReport.type,
+          latitude: backendReport.latitude || backendReport.location.coordinates[1],
+          longitude: backendReport.longitude || backendReport.location.coordinates[0],
+          description: backendReport.description,
+          severity: backendReport.severity,
+          images: backendReport.images?.map((img: any) => img.url) || [],
+          timestamp: new Date(backendReport.createdAt),
+          userId: backendReport.user._id || backendReport.user,
+          verified: backendReport.verification?.isVerified || false,
+          upvotes: backendReport.interactions?.helpfulCount || 0,
+          downvotes: 0, // Not implemented in backend yet
+          comments: backendReport.interactions?.comments?.map((comment: any) => ({
+            id: comment._id,
+            userId: comment.user._id || comment.user,
+            username: comment.user.name || 'Unknown',
+            text: comment.text,
+            timestamp: new Date(comment.createdAt)
+          })) || [],
+          expiresAt: new Date(backendReport.expiresAt)
+        }))
+
+        // Update local cache
+        this.reports = reports
+        return reports
       } else {
-        report.downvotes++
+        throw new Error(response.message || 'Failed to fetch reports')
       }
+    } catch (error) {
+      console.error('Get all reports error:', error)
+      // Return cached reports as fallback
+      return this.reports
+    }
+  }
+
+  // Vote on a report (mark as helpful)
+  async voteOnReport(reportId: string, vote: 'up' | 'down'): Promise<void> {
+    try {
+      if (vote === 'up') {
+        const response = await apiService.markReportHelpful(reportId)
+        if (response.success) {
+          // Update local cache
+          const report = this.reports.find(r => r.id === reportId)
+          if (report) {
+            report.upvotes = response.data.helpfulCount || report.upvotes + 1
+          }
+        }
+      } else {
+        // Down vote not implemented in backend yet
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          report.downvotes++
+        }
+      }
+    } catch (error) {
+      console.error('Vote on report error:', error)
+      throw error
+    }
+  }
+
+  // Verify a report
+  async verifyReport(reportId: string): Promise<void> {
+    try {
+      const response = await apiService.verifyReport(reportId)
+      if (response.success) {
+        // Update local cache
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          report.verified = response.data.isVerified || true
+        }
+      }
+    } catch (error) {
+      console.error('Verify report error:', error)
+      throw error
     }
   }
 
   // Add comment to report
   async addComment(reportId: string, comment: Omit<Comment, 'id' | 'timestamp'>): Promise<void> {
-    const report = this.reports.find(r => r.id === reportId)
-    if (report) {
-      const newComment: Comment = {
-        ...comment,
-        id: Date.now().toString(),
-        timestamp: new Date()
+    try {
+      const response = await apiService.addComment(reportId, comment.text)
+      if (response.success) {
+        // Update local cache
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          const newComment: Comment = {
+            id: response.data.comment._id,
+            userId: response.data.comment.user._id || response.data.comment.user,
+            username: response.data.comment.user.name || comment.username,
+            text: response.data.comment.text,
+            timestamp: new Date(response.data.comment.createdAt)
+          }
+          report.comments.push(newComment)
+        }
       }
-      report.comments.push(newComment)
+    } catch (error) {
+      console.error('Add comment error:', error)
+      // Fallback to local cache
+      const report = this.reports.find(r => r.id === reportId)
+      if (report) {
+        const newComment: Comment = {
+          ...comment,
+          id: Date.now().toString(),
+          timestamp: new Date()
+        }
+        report.comments.push(newComment)
+      }
+      throw error
     }
   }
 
@@ -109,12 +316,13 @@ class ReportService {
         quality: 0.7,
       })
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets && result.assets[0]) {
         return result.assets[0].uri
       }
       return null
     } catch (error) {
       console.error('Error picking image:', error)
+      Alert.alert('Error', 'Failed to pick image. Please try again.')
       return null
     }
   }

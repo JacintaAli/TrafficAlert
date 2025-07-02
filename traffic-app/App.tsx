@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { View } from "react-native"
 import { NavigationContainer } from "@react-navigation/native"
 import { createStackNavigator } from "@react-navigation/stack"
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
@@ -21,6 +22,8 @@ import EditProfileScreen from "./screens/EditProfileScreen"
 import AboutScreen from "./screens/AboutScreen"
 import HelpSupportScreen from "./screens/HelpSupportScreen"
 import RouteSuggestionScreen from "./screens/RouteSuggestionScreen"
+import NavigationScreen from "./screens/NavigationScreen"
+import AlertDetailsScreen from "./screens/AlertDetailsScreen"
 import AllReportsScreen from "./screens/AllReportsScreen"
 import ReportDetailsScreen from "./screens/ReportDetailsScreen"
 
@@ -31,11 +34,16 @@ import { userService } from "./services/userService"
 // Import theme context
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext"
 
+// Import components and hooks
+import NotificationBadge from "./components/NotificationBadge"
+import { useNotificationBadge } from "./hooks/useNotificationBadge"
+
 const Stack = createStackNavigator()
 const Tab = createBottomTabNavigator()
 
 function MainTabs() {
   const { theme } = useTheme()
+  const { count, highestSeverity, hasUnread } = useNotificationBadge()
 
   return (
     <Tab.Navigator
@@ -53,6 +61,21 @@ function MainTabs() {
             iconName = focused ? "person" : "person-outline"
           } else {
             iconName = "home-outline"
+          }
+
+          // Add notification badge for Alerts tab
+          if (route.name === "Alerts" && hasUnread) {
+            return (
+              <View style={{ position: 'relative' }}>
+                <Ionicons name={iconName} size={size} color={color} />
+                <NotificationBadge
+                  count={count}
+                  severity={highestSeverity}
+                  size="small"
+                  position="top-right"
+                />
+              </View>
+            )
           }
 
           return <Ionicons name={iconName} size={size} color={color} />
@@ -111,6 +134,8 @@ function ThemedNavigator() {
         <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Navigation" component={NavigationScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="AlertDetails" component={AlertDetailsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ReportDetails" component={ReportDetailsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>

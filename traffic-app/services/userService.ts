@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import apiService from './apiService'
 
 export interface UserProfile {
   id: string
@@ -62,6 +63,12 @@ class UserService {
       const savedUser = await AsyncStorage.getItem(this.STORAGE_KEY)
       if (savedUser) {
         this.currentUser = JSON.parse(savedUser)
+      }
+
+      // Also load and set the auth token in apiService
+      const token = await AsyncStorage.getItem('authToken')
+      if (token) {
+        apiService.setToken(token)
       }
     } catch (error) {
       console.error('Error loading user profile:', error)
@@ -294,6 +301,109 @@ class UserService {
     } catch (error) {
       console.error('Error updating user profile:', error)
       throw error
+    }
+  }
+
+  // Authentication methods
+  async login(email: string, password: string): Promise<{ success: boolean; user?: UserProfile; message?: string }> {
+    try {
+      const response = await apiService.login({ email, password })
+
+      if (response.success && response.data.user) {
+        // Convert backend user to our UserProfile format
+        const user = this.convertBackendUserToProfile(response.data.user)
+        this.currentUser = user
+        await this.saveProfile()
+
+        // Ensure the token is set in apiService
+        if (response.data.token) {
+          apiService.setToken(response.data.token)
+        }
+
+        return { success: true, user }
+      } else {
+        return { success: false, message: response.message || 'Login failed' }
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      return { success: false, message: error.message || 'Network error. Please try again.' }
+    }
+  }
+
+  async register(userData: { name: string; email: string; password: string; phone?: string }): Promise<{ success: boolean; user?: UserProfile; message?: string }> {
+    try {
+      const response = await apiService.register(userData)
+
+      if (response.success && response.data.user) {
+        // Convert backend user to our UserProfile format
+        const user = this.convertBackendUserToProfile(response.data.user)
+        this.currentUser = user
+        await this.saveProfile()
+
+        // Ensure the token is set in apiService
+        if (response.data.token) {
+          apiService.setToken(response.data.token)
+        }
+
+        return { success: true, user }
+      } else {
+        return { success: false, message: response.message || 'Registration failed' }
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      return { success: false, message: error.message || 'Network error. Please try again.' }
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await apiService.logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      await this.clearUserData()
+    }
+  }
+
+  // Convert backend user format to our UserProfile format
+  private convertBackendUserToProfile(backendUser: any): UserProfile {
+    return {
+      id: backendUser.id || backendUser._id,
+      username: backendUser.name,
+      email: backendUser.email,
+      avatar: backendUser.profilePicture,
+      joinDate: new Date(backendUser.createdAt || Date.now()),
+      stats: {
+        reportsSubmitted: backendUser.stats?.reportsSubmitted || 0,
+        reportsVerified: backendUser.stats?.reportsVerified || 0,
+        upvotesReceived: backendUser.stats?.helpfulVotes || 0,
+        helpfulVotes: backendUser.stats?.helpfulVotes || 0,
+        distanceTraveled: 0, // Not tracked in backend yet
+        timesSaved: 0 // Not tracked in backend yet
+      },
+      preferences: {
+        notifications: {
+          trafficAlerts: backendUser.preferences?.notifications?.nearbyReports ?? true,
+          routeUpdates: backendUser.preferences?.notifications?.routeAlerts ?? true,
+          nearbyIncidents: backendUser.preferences?.notifications?.nearbyReports ?? true,
+          weeklyDigest: backendUser.preferences?.notifications?.email ?? true,
+        },
+        privacy: {
+          shareLocation: backendUser.preferences?.privacy?.shareLocation ?? true,
+          showProfile: backendUser.preferences?.privacy?.showProfile ?? true,
+          allowFriendRequests: true, // Not in backend yet
+        },
+        routes: {
+          avoidTolls: false, // Not in backend yet
+          avoidHighways: false, // Not in backend yet
+          preferFastestRoute: true, // Not in backend yet
+        },
+        units: 'metric' as const,
+        language: 'en'
+      },
+      badges: [], // Not implemented in backend yet
+      level: Math.floor((backendUser.stats?.reportsSubmitted || 0) / 10) + 1,
+      experience: (backendUser.stats?.reportsSubmitted || 0) * 10
     }
   }
 

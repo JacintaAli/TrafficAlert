@@ -20,7 +20,7 @@ const dummyRoutes = [
     distance: "12.5 km",
     description: "Via Ahmadu Bello Way",
     traffic: "Light traffic",
-    incidents: 0,
+    incidents: 0
   },
   {
     id: "2",
@@ -29,7 +29,7 @@ const dummyRoutes = [
     distance: "15.2 km",
     description: "Via Constitution Avenue",
     traffic: "Moderate traffic",
-    incidents: 1,
+    incidents: 1
   },
   {
     id: "3",
@@ -38,7 +38,7 @@ const dummyRoutes = [
     distance: "13.8 km",
     description: "Via Shehu Shagari Way",
     traffic: "Heavy traffic",
-    incidents: 2,
+    incidents: 2
   },
 ]
 
@@ -119,6 +119,22 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
       default:
         return "#666"
     }
+  }
+
+  const handleSelectRoute = (selectedRoute: any) => {
+    // Generate a mock destination coordinate based on the route
+    const mockDestination = {
+      latitude: location ? location.latitude + 0.05 : 9.0765,
+      longitude: location ? location.longitude + 0.05 : 7.3986,
+    }
+
+    // Navigate to NavigationScreen with the selected route
+    navigation.navigate('Navigation', {
+      selectedRoute: {
+        ...selectedRoute,
+        destination: mockDestination,
+      }
+    })
   }
 
   // Use routes from our service or fallback to dummy data
@@ -202,7 +218,7 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
                 </View>
 
                 {/* Enhanced route info */}
-                <View style={styles.enhancedInfo}>
+                {/* <View style={styles.enhancedInfo}>
                   {route.tollCost && route.tollCost > 0 && (
                     <View style={styles.costInfo}>
                       <Ionicons name="card-outline" size={14} color="#666" />
@@ -215,9 +231,12 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
                       <Text style={styles.costText}>Fuel: ${route.fuelCost}</Text>
                     </View>
                   )}
-                </View>
+                </View> */}
 
-                <TouchableOpacity style={styles.selectButton}>
+                <TouchableOpacity
+                  style={styles.selectButton}
+                  onPress={() => handleSelectRoute(route)}
+                >
                   <Text style={styles.selectButtonText}>Select Route</Text>
                 </TouchableOpacity>
               </TouchableOpacity>
@@ -248,7 +267,6 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
   )
 }
 
-// Add the missing styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -310,17 +328,17 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
     marginLeft: 12,
+    color: "#333",
   },
   searchButton: {
     backgroundColor: "#2196F3",
+    paddingVertical: 16,
     borderRadius: 8,
-    padding: 16,
     alignItems: "center",
   },
   searchButtonDisabled: {
-    backgroundColor: "#ccc",
+    opacity: 0.6,
   },
   searchButtonText: {
     color: "#fff",
@@ -332,15 +350,22 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "bold",
     color: "#333",
     marginBottom: 16,
   },
   routeCard: {
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   routeHeader: {
     flexDirection: "row",
@@ -358,11 +383,11 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
     color: "#2196F3",
   },
   distance: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#666",
   },
   routeDescription: {
@@ -372,13 +397,13 @@ const styles = StyleSheet.create({
   },
   routeInfo: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
   },
   trafficInfo: {
     flexDirection: "row",
     alignItems: "center",
-    marginRight: 16,
   },
   trafficDot: {
     width: 8,
@@ -387,7 +412,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   trafficText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#666",
   },
   incidentInfo: {
@@ -395,20 +420,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   incidentText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#ff9800",
     marginLeft: 4,
   },
   selectButton: {
-    backgroundColor: "#2196F3",
-    borderRadius: 6,
-    padding: 10,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: "center",
+    marginTop: 8,
   },
   selectButtonText: {
     color: "#fff",
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   quickDestinations: {
     padding: 20,
@@ -417,7 +443,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#f5f5f5",
     borderRadius: 8,
     marginBottom: 8,
   },

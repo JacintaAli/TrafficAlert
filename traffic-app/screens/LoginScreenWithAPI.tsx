@@ -1,3 +1,4 @@
+// Example: LoginScreen connected to your backend API
 "use client"
 
 import { useState } from "react"
@@ -14,7 +15,7 @@ import {
   ActivityIndicator,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import { userService } from "../services/userService"
+import apiService from "../services/apiService"
 
 interface LoginScreenProps {
   navigation: any
@@ -27,33 +28,29 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async () => {
-    // Validate input
-    if (!email.trim()) {
-      Alert.alert("Error", "Please enter your email address")
-      return
-    }
-
-    if (!password.trim()) {
-      Alert.alert("Error", "Please enter your password")
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields")
       return
     }
 
     setLoading(true)
-
+    
     try {
-      const result = await userService.login(email.trim().toLowerCase(), password)
+      // Call your backend API
+      const response = await apiService.login({
+        email: email.toLowerCase().trim(),
+        password: password
+      })
 
-      if (result.success) {
-        Alert.alert(
-          "Success",
-          "Login successful!",
-          [{ text: "OK", onPress: () => navigation.replace("Main") }]
-        )
-      } else {
-        Alert.alert("Login Failed", result.message || "Invalid email or password")
+      if (response.success) {
+        // Login successful - navigate to main app
+        Alert.alert("Success", "Login successful!", [
+          { text: "OK", onPress: () => navigation.replace("Main") }
+        ])
       }
     } catch (error) {
-      Alert.alert("Error", "Network error. Please check your connection and try again.")
+      // Handle login error
+      Alert.alert("Login Failed", error.message || "Invalid email or password")
     } finally {
       setLoading(false)
     }
@@ -102,26 +99,26 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+            <TouchableOpacity 
+              style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
+                <Text style={styles.loginButtonText}>Log In</Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.forgotPassword} onPress={() => navigation.navigate("ForgotPassword")}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")} disabled={loading}>
+              <Text style={styles.forgotPassword}>Forgot Password?</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
+            <TouchableOpacity onPress={() => navigation.navigate("SignUp")} disabled={loading}>
               <Text style={styles.signUpText}>Sign Up</Text>
             </TouchableOpacity>
           </View>
@@ -134,31 +131,30 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f5f5f5",
   },
   keyboardView: {
     flex: 1,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 30,
     justifyContent: "center",
+    paddingHorizontal: 30,
   },
   header: {
     alignItems: "center",
-    marginBottom: 50,
+    marginBottom: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#333",
-    marginTop: 20,
+    marginTop: 10,
   },
   subtitle: {
     fontSize: 16,
     color: "#666",
-    marginTop: 8,
-    textAlign: "center",
+    marginTop: 5,
   },
   form: {
     marginBottom: 30,
@@ -166,47 +162,54 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    height: 50,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    marginBottom: 15,
+    paddingHorizontal: 15,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   input: {
     flex: 1,
+    height: 50,
     fontSize: 16,
     color: "#333",
   },
   eyeIcon: {
-    padding: 4,
+    padding: 5,
   },
   loginButton: {
     backgroundColor: "#2196F3",
-    borderRadius: 12,
+    borderRadius: 10,
     height: 50,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   loginButtonDisabled: {
     backgroundColor: "#ccc",
   },
   loginButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   forgotPassword: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  forgotPasswordText: {
     color: "#2196F3",
-    fontSize: 14,
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
   },
   footer: {
     flexDirection: "row",
@@ -215,11 +218,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     color: "#666",
-    fontSize: 14,
+    fontSize: 16,
   },
   signUpText: {
     color: "#2196F3",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "bold",
   },
-})
+});

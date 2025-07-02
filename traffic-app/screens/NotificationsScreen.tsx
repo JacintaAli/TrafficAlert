@@ -3,6 +3,8 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView } from
 import { Ionicons } from "@expo/vector-icons"
 import { notificationService, NotificationData } from "../services/notificationService"
 import { useTheme } from "../contexts/ThemeContext"
+import { useNotificationBadge } from "../hooks/useNotificationBadge"
+import NotificationBadge from "../components/NotificationBadge"
 
 interface NotificationsScreenProps {
   navigation: any
@@ -53,6 +55,7 @@ const dummyNotifications = [
 
 export default function NotificationsScreen({ navigation }: NotificationsScreenProps) {
   const { theme } = useTheme()
+  const { count, highestSeverity, hasUnread, refreshBadge } = useNotificationBadge() as any
   const [notifications, setNotifications] = useState<NotificationData[]>([])
   const [refreshing, setRefreshing] = useState(false)
 
@@ -74,11 +77,13 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
   const handleMarkAsRead = (notificationId: string) => {
     notificationService.markAsRead(notificationId)
     loadNotifications()
+    refreshBadge() // Update badge count
   }
 
   const handleMarkAllAsRead = () => {
     notificationService.markAllAsRead()
     loadNotifications()
+    refreshBadge() // Update badge count
   }
 
   const getNotificationIcon = (type: string) => {
@@ -114,10 +119,35 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
     return 'Just now'
   }
 
+  const handleNotificationPress = (item: NotificationData) => {
+    // Mark as read
+    handleMarkAsRead(item.id)
+
+    // Navigate to AlertDetailsScreen with notification data
+    const alertData = {
+      id: item.id,
+      title: item.title,
+      message: item.body,
+      type: item.type as 'traffic' | 'accident' | 'roadwork' | 'weather' | 'camera',
+      severity: item.priority as 'low' | 'medium' | 'high' | 'critical',
+      location: item.location || {
+        latitude: 9.0765,
+        longitude: 7.3986,
+        address: "Unknown Location"
+      },
+      timestamp: formatTime(item.timestamp),
+      distance: "250m", // Mock distance
+      estimatedClearTime: "30 min",
+      affectedRoutes: ["Main Street", "Highway 1"]
+    }
+
+    navigation.navigate('AlertDetails', { alert: alertData })
+  }
+
   const renderNotificationItem = ({ item }: { item: NotificationData }) => (
     <TouchableOpacity
       style={[styles.notificationItem, !item.read && styles.unreadNotification]}
-      onPress={() => handleMarkAsRead(item.id)}
+      onPress={() => handleNotificationPress(item)}
     >
       <View style={styles.notificationContent}>
         <View style={styles.notificationHeader}>
@@ -141,7 +171,17 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Notifications</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Notifications</Text>
+          {hasUnread && (
+            <NotificationBadge
+              count={count}
+              severity={highestSeverity}
+              size="medium"
+              position="top-right"
+            />
+          )}
+        </View>
         <TouchableOpacity onPress={handleMarkAllAsRead}>
           <Text style={[styles.markAllReadText, { color: theme.colors.primary }]}>Mark All Read</Text>
         </TouchableOpacity>
@@ -181,6 +221,10 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  headerTitleContainer: {
+    position: "relative",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,

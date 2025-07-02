@@ -21,7 +21,8 @@ export interface NotificationData {
 // Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,  // Show notification banner
+    shouldShowList: true,    // Show in notification list
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),

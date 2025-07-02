@@ -6,7 +6,9 @@ import { Ionicons } from "@expo/vector-icons"
 import { useLocation } from "../hooks/useLocation"
 import MapComponent from "../components/MapComponent"
 import { reportService } from "../services/reportService"
+import { userService } from "../services/userService"
 import { useTheme } from "../contexts/ThemeContext"
+import DebugPanel from "../components/DebugPanel"
 
 interface ReportIncidentScreenProps {
   navigation: any
@@ -57,9 +59,34 @@ export default function ReportIncidentScreen({ navigation, route }: ReportIncide
       return
     }
 
+    if (description.trim().length < 10) {
+      Alert.alert("Error", "Description must be at least 10 characters long")
+      return
+    }
+
+    if (description.trim().length > 500) {
+      Alert.alert("Error", "Description cannot exceed 500 characters")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
+      // Check if user is logged in
+      const currentUser = await userService.getCurrentUser()
+      if (!currentUser) {
+        Alert.alert(
+          "Authentication Required",
+          "Please log in to submit reports.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Login", onPress: () => navigation.navigate("Login") }
+          ]
+        )
+        setIsSubmitting(false)
+        return
+      }
+
       await reportService.submitReport({
         type: selectedType as any,
         latitude: reportLocation.latitude,
@@ -67,7 +94,7 @@ export default function ReportIncidentScreen({ navigation, route }: ReportIncide
         description: description.trim(),
         severity: selectedSeverity as any,
         images,
-        userId: "current_user_id", // Would come from auth service
+        userId: currentUser.id, // Use actual user ID
       })
 
       Alert.alert("Success", "Report submitted successfully!", [
@@ -77,7 +104,8 @@ export default function ReportIncidentScreen({ navigation, route }: ReportIncide
         },
       ])
     } catch (error) {
-      Alert.alert("Error", "Failed to submit report. Please try again.")
+      console.error('Submit report error:', error)
+      Alert.alert("Error", error.message || "Failed to submit report. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -147,6 +175,7 @@ export default function ReportIncidentScreen({ navigation, route }: ReportIncide
       </View>
 
       <ScrollView style={styles.formContainer}>
+        <DebugPanel />
         <View style={styles.formContent}>
           <View style={styles.inputGroup}>
             <View style={styles.inputHeader}>
