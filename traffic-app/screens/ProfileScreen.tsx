@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react"
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, FlatList, Alert } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { userService, UserProfile } from "../services/userService"
-import { reportService } from "../services/reportService"
 import { useTheme } from "../contexts/ThemeContext"
 
 interface ProfileScreenProps {
@@ -14,13 +13,10 @@ interface ProfileScreenProps {
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { theme, isDark, toggleTheme } = useTheme()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [userReports, setUserReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingReports, setLoadingReports] = useState(false)
 
   useEffect(() => {
     loadUserProfile()
-    loadUserReports()
   }, [])
 
   const loadUserProfile = async () => {
@@ -40,76 +36,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     }
   }
 
-  const loadUserReports = async () => {
-    setLoadingReports(true)
-    try {
-      // For demo purposes, let's create some sample user reports
-      // In a real app, you'd filter reports by user ID from the report service
-      const sampleUserReports = [
-        {
-          id: "user-1",
-          type: "Traffic Jam",
-          location: "Wuse 2, Abuja",
-          date: "2024-01-15",
-          status: "Active",
-          severity: "Medium",
-          description: "Heavy traffic due to road construction"
-        },
-        {
-          id: "user-2",
-          type: "Accident",
-          location: "Garki Area 1",
-          date: "2024-01-12",
-          status: "Resolved",
-          severity: "High",
-          description: "Minor collision, cleared by authorities"
-        },
-        {
-          id: "user-3",
-          type: "Construction",
-          location: "Central Business District",
-          date: "2024-01-10",
-          status: "Active",
-          severity: "Low",
-          description: "Road maintenance work in progress"
-        }
-      ]
 
-      setUserReports(sampleUserReports)
-    } catch (error) {
-      console.error("Failed to load user reports:", error)
-    } finally {
-      setLoadingReports(false)
-    }
-  }
-
-  const renderReportItem = ({ item }: { item: any }) => (
-    <View style={styles.reportItem}>
-      <View style={styles.reportHeader}>
-        <Text style={styles.reportType}>{item.type}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: item.status === "Active" ? "#4CAF50" : "#9E9E9E" }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
-      </View>
-      <Text style={styles.reportDescription}>{item.description}</Text>
-      <Text style={styles.reportLocation}>📍 {item.location}</Text>
-      <View style={styles.reportFooter}>
-        <Text style={styles.reportDate}>{item.date}</Text>
-        <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(item.severity) }]}>
-          <Text style={styles.severityText}>{item.severity}</Text>
-        </View>
-      </View>
-    </View>
-  )
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'High': return '#f44336'
-      case 'Medium': return '#ff9800'
-      case 'Low': return '#4caf50'
-      default: return '#9e9e9e'
-    }
-  }
 
   const handleLogout = () => {
     Alert.alert(
@@ -215,6 +142,12 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             </View>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("MyReports")}>
+            <Ionicons name="document-text-outline" size={24} color={theme.colors.textSecondary} />
+            <Text style={[styles.menuText, { color: theme.colors.text }]}>My Reports</Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate("ChangePassword")}>
             <Ionicons name="key-outline" size={24} color="#666" />
             <Text style={styles.menuText}>Change Password</Text>
@@ -234,29 +167,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           </TouchableOpacity>
         </View>
 
-        {/* My Reports Section */}
-        <View style={styles.reportsSection}>
-          <Text style={styles.sectionTitle}>My Reports ({userReports.length})</Text>
-          {loadingReports ? (
-            <View style={styles.loadingReportsContainer}>
-              <Text style={styles.loadingReportsText}>Loading reports...</Text>
-            </View>
-          ) : userReports.length === 0 ? (
-            <View style={styles.emptyReportsContainer}>
-              <Ionicons name="document-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyReportsText}>No reports yet</Text>
-              <Text style={styles.emptyReportsSubtext}>Your submitted traffic reports will appear here</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={userReports}
-              renderItem={renderReportItem}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </View>
+
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color="#f44336" />

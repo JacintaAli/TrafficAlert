@@ -123,25 +123,28 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
     // Mark as read
     handleMarkAsRead(item.id)
 
-    // Navigate to AlertDetailsScreen with notification data
-    const alertData = {
+    // Navigate to ReportDetailsScreen with notification data transformed to report format
+    const reportData = {
       id: item.id,
-      title: item.title,
-      message: item.body,
-      type: item.type as 'traffic' | 'accident' | 'roadwork' | 'weather' | 'camera',
-      severity: item.priority as 'low' | 'medium' | 'high' | 'critical',
+      type: item.title, // Use notification title as report type
+      description: item.body,
+      image: null, // Notifications don't have images by default
+      comments: 0, // Start with 0 comments
+      upvotes: 0, // Start with 0 upvotes
+      downvotes: 0, // Start with 0 downvotes
+      time: formatTime(item.timestamp),
       location: item.location || {
         latitude: 9.0765,
         longitude: 7.3986,
         address: "Unknown Location"
       },
-      timestamp: formatTime(item.timestamp),
+      severity: item.priority as 'low' | 'medium' | 'high' | 'critical',
       distance: "250m", // Mock distance
       estimatedClearTime: "30 min",
       affectedRoutes: ["Main Street", "Highway 1"]
     }
 
-    navigation.navigate('AlertDetails', { alert: alertData })
+    navigation.navigate('ReportDetails', { report: reportData })
   }
 
   const renderNotificationItem = ({ item }: { item: NotificationData }) => (

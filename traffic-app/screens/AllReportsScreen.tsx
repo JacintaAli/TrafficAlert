@@ -58,7 +58,11 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
   }
 
   const renderReportItem = ({ item }: { item: (typeof dummyReports)[0] }) => (
-    <View style={[styles.reportItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+    <TouchableOpacity
+      style={[styles.reportItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+      onPress={() => navigation.navigate("ReportDetails", { report: item })}
+      activeOpacity={0.7}
+    >
       {item.image && <Image source={{ uri: item.image }} style={styles.reportImage} />}
 
       <View style={styles.reportContent}>
@@ -77,32 +81,50 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
         </TouchableOpacity>
 
         <View style={styles.reportActions}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              // Handle upvote action here if needed
+            }}
+          >
             <Ionicons name="arrow-up" size={20} color={theme.colors.success} />
             <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.upvotes}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              // Handle downvote action here if needed
+            }}
+          >
             <Ionicons name="arrow-down" size={20} color={theme.colors.error} />
             <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.downvotes}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate("ReportDetails", { report: item })}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate("ReportDetails", { report: item });
+            }}
           >
             <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleShare(item)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleShare(item);
+            }}
           >
             <Ionicons name="share-outline" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   )
 
   return (
