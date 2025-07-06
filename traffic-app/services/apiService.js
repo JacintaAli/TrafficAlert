@@ -214,6 +214,32 @@ class ApiService {
     return await this.request('/users/stats');
   }
 
+  async uploadProfilePicture(imageFile) {
+    console.log('📸 ApiService: Uploading profile picture...');
+    console.log('📸 ApiService: Image file details:', imageFile);
+
+    try {
+      const formData = new FormData();
+      formData.append('profilePicture', {
+        uri: imageFile.uri,
+        type: imageFile.type || 'image/jpeg',
+        name: imageFile.name || 'profile.jpg',
+      });
+
+      console.log('📸 ApiService: FormData prepared, making request to /users/profile/picture');
+      const response = await this.request('/users/profile/picture', {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('📸 ApiService: Upload response received:', response);
+      return response;
+    } catch (error) {
+      console.error('📸 ApiService: Upload error:', error);
+      throw error;
+    }
+  }
+
   // Notification methods
   async getNotifications() {
     return await this.request('/notifications');

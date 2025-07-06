@@ -14,6 +14,12 @@ export interface TrafficReport {
   images: string[]
   timestamp: Date
   userId: string
+  // User data for display (populated from backend)
+  user?: {
+    _id: string
+    name: string
+    profilePicture?: string
+  } | null
   verified: boolean
   upvotes: number
   downvotes: number
@@ -35,9 +41,12 @@ class ReportService {
   // Submit a new report to backend
   async submitReport(reportData: Omit<TrafficReport, 'id' | 'timestamp' | 'verified' | 'upvotes' | 'downvotes' | 'comments'>): Promise<TrafficReport> {
     try {
+      console.log('📝 ReportService: Starting report submission...')
+      console.log('📝 ReportService: Report data received:', reportData)
+
       // Get current user
       const currentUser = await userService.getCurrentUser()
-      console.log('Current user:', currentUser ? 'Logged in' : 'Not logged in')
+      console.log('📝 ReportService: Current user:', currentUser ? `${currentUser.username} (${currentUser.email})` : 'Not logged in')
 
       if (!currentUser) {
         throw new Error('User not authenticated. Please log in first.')
@@ -51,7 +60,7 @@ class ReportService {
         location: {
           latitude: reportData.latitude,
           longitude: reportData.longitude,
-          address: reportData.address || `${reportData.latitude}, ${reportData.longitude}`
+          address: `${reportData.latitude}, ${reportData.longitude}`
         }
         // Note: metadata is not allowed by validation schema, so removed
       }
@@ -92,8 +101,9 @@ class ReportService {
       }
 
       // Submit to backend
-      console.log('Number of images:', imageFiles.length);
+      console.log('📝 ReportService: Submitting to backend with', imageFiles.length, 'images');
       const response = await apiService.createReport(backendReportData, imageFiles)
+      console.log('📝 ReportService: Backend response:', response);
 
       if (response.success) {
         // Convert backend response to our TrafficReport format
@@ -124,12 +134,14 @@ class ReportService {
         // Add to local cache
         this.reports.unshift(report)
 
+        console.log('📝 ReportService: Report submitted successfully!', report.id)
         return report
       } else {
+        console.log('📝 ReportService: Backend submission failed:', response.message)
         throw new Error(response.message || 'Failed to submit report')
       }
     } catch (error) {
-      console.error('Submit report error:', error)
+      console.error('📝 ReportService: Error submitting report:', error)
       throw error
     }
   }
@@ -198,6 +210,12 @@ class ReportService {
           images: backendReport.images?.map((img: any) => img.url) || [],
           timestamp: new Date(backendReport.createdAt),
           userId: backendReport.user._id || backendReport.user,
+          // Preserve full user data for display
+          user: typeof backendReport.user === 'object' ? {
+            _id: backendReport.user._id,
+            name: backendReport.user.name,
+            profilePicture: backendReport.user.profilePicture
+          } : null,
           verified: backendReport.verification?.isVerified || false,
           upvotes: backendReport.interactions?.helpfulCount || 0,
           downvotes: 0, // Not implemented in backend yet

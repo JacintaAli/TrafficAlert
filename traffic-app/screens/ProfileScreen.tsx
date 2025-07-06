@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Ale
 import { Ionicons } from "@expo/vector-icons"
 import { userService, UserProfile } from "../services/userService"
 import { useTheme } from "../contexts/ThemeContext"
+import UserAvatar, { UserAvatarSizes } from "../components/UserAvatar"
+import { useFocusEffect } from "@react-navigation/native"
+import { useCallback } from "react"
 
 interface ProfileScreenProps {
   navigation: any
@@ -19,18 +22,47 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     loadUserProfile()
   }, [])
 
+  // Refresh profile when screen comes into focus (e.g., returning from EditProfile)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('👤 ProfileScreen: Screen focused, refreshing profile...')
+      loadUserProfile()
+    }, [])
+  )
+
   const loadUserProfile = async () => {
     try {
+      console.log('👤 ProfileScreen: Loading user profile...')
+
+      // Get current user from local storage first
       let profile = userService.getCurrentUser()
 
-      // Create a demo profile if none exists
-      if (!profile) {
-        profile = await userService.createProfile("TrafficUser", "user@example.com")
-      }
+      if (profile) {
+        console.log('👤 ProfileScreen: Found local profile for:', profile.username)
+        console.log('👤 ProfileScreen: Profile avatar:', profile.avatar)
+        setUserProfile(profile)
 
-      setUserProfile(profile)
+        // Try to refresh from backend
+        try {
+          const backendProfile = await userService.refreshProfileFromBackend()
+          if (backendProfile) {
+            console.log('👤 ProfileScreen: Updated profile from backend')
+            console.log('👤 ProfileScreen: Backend profile avatar:', backendProfile.avatar)
+            setUserProfile(backendProfile)
+          }
+
+
+        } catch (error) {
+          console.log('👤 ProfileScreen: Could not refresh from backend, using local profile')
+        }
+      } else {
+        console.log('👤 ProfileScreen: No user profile found, redirecting to login')
+        navigation.replace("Login")
+      }
     } catch (error) {
-      console.error("Failed to load user profile:", error)
+      console.error('👤 ProfileScreen: Failed to load user profile:', error)
+      Alert.alert("Error", "Failed to load profile. Please try logging in again.")
+      navigation.replace("Login")
     } finally {
       setLoading(false)
     }
@@ -48,8 +80,15 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           text: "Logout",
           style: "destructive",
           onPress: async () => {
-            await userService.clearUserData()
-            navigation.replace("Login")
+            try {
+              await userService.logout()
+              navigation.replace("Login")
+            } catch (error) {
+              console.error("Logout error:", error)
+              // Force logout even if backend call fails
+              await userService.clearUserData()
+              navigation.replace("Login")
+            }
           }
         }
       ]
@@ -107,9 +146,15 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       <ScrollView style={styles.scrollView}>
         <View style={dynamicStyles.header}>
           <View style={styles.profileSection}>
-            <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
-            </View>
+            <UserAvatar
+              size={UserAvatarSizes.large}
+              showBorder={true}
+              borderColor={theme.colors.primary}
+              backgroundColor={theme.colors.surface}
+              iconColor={theme.colors.textSecondary}
+              userAvatar={userProfile.avatar}
+              userName={userProfile.username}
+            />
             <View style={styles.userInfo}>
               <Text style={dynamicStyles.userName}>{userProfile.username}</Text>
               <Text style={dynamicStyles.userEmail}>{userProfile.email}</Text>

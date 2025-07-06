@@ -90,26 +90,34 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
       return
     }
 
-    if (!email.trim()) {
-      Alert.alert("Error", "Please enter an email")
-      return
-    }
-
     setSaving(true)
     try {
-      // Update user profile
+      console.log('💾 EditProfileScreen: Saving profile changes...')
+
       if (userProfile) {
+        // Handle profile picture (temporarily save locally only)
+        let profilePictureUrl = userProfile.avatar
+
+        if (profileImage && profileImage !== userProfile.avatar) {
+          console.log('📸 EditProfileScreen: New profile picture selected (saving locally for now)')
+          profilePictureUrl = profileImage
+        }
+
+        // Update user profile
         const updatedProfile = {
           ...userProfile,
           username: username.trim(),
-          email: email.trim(),
-          avatar: profileImage || undefined,
+          email: email.trim(), // Keep locally (not sent to backend)
+          avatar: profilePictureUrl || undefined,
         }
-        
+
+        console.log('💾 EditProfileScreen: Updating profile with avatar:', profilePictureUrl)
         await userService.updateProfile(updatedProfile)
-        
+        console.log('💾 EditProfileScreen: Profile updated, new current user:', userService.getCurrentUser())
+
+        console.log('💾 EditProfileScreen: Profile updated successfully')
         Alert.alert(
-          "Success", 
+          "Success",
           "Profile updated successfully!",
           [
             {
@@ -120,8 +128,8 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
         )
       }
     } catch (error) {
-      console.error("Failed to update profile:", error)
-      Alert.alert("Error", "Failed to update profile. Please try again.")
+      console.error('💾 EditProfileScreen: Failed to update profile:', error)
+      Alert.alert("Error", (error as Error).message || "Failed to update profile. Please try again.")
     } finally {
       setSaving(false)
     }
@@ -191,13 +199,14 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Email</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, styles.readOnlyInput]}
               value={email}
-              onChangeText={setEmail}
               placeholder="Enter your email"
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={false}
             />
+            <Text style={styles.helperText}>Email changes are not currently supported</Text>
           </View>
         </View>
 
@@ -347,5 +356,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
     backgroundColor: "#fff",
+  },
+  readOnlyInput: {
+    backgroundColor: "#f5f5f5",
+    color: "#666",
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    fontStyle: "italic",
   },
 })

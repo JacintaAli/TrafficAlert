@@ -12,27 +12,18 @@ interface HomeScreenProps {
   navigation: any
 }
 
-// Simulated nearby reports based on real location
-const generateNearbyReports = (userLocation: { latitude: number; longitude: number }) => {
-  const reports = []
-  const types = ["accident", "construction", "hazard", "traffic"]
-
-  for (let i = 0; i < 5; i++) {
-    // Generate random points within ~5km radius
-    const latOffset = (Math.random() - 0.5) * 0.05
-    const lngOffset = (Math.random() - 0.5) * 0.05
-
-    reports.push({
-      id: `report_${i}`,
-      latitude: userLocation.latitude + latOffset,
-      longitude: userLocation.longitude + lngOffset,
-      type: types[Math.floor(Math.random() * types.length)],
-      distance: Math.floor(Math.random() * 5000) + 100, // 100m to 5km
-      time: `${Math.floor(Math.random() * 60) + 1} min ago`,
-    })
-  }
-
-  return reports
+// Helper function to calculate distance between two points
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371 // Radius of the Earth in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  const distance = R * c // Distance in kilometers
+  return Math.round(distance * 1000) // Return distance in meters
 }
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
@@ -52,17 +43,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
     setLoadingReports(true)
     try {
+      console.log('🗺️ HomeScreen: Loading nearby reports...')
       const nearbyReports = await reportService.getNearbyReports(
         location.latitude,
         location.longitude,
-        10 // 10km radius
+        5000 // 5km radius in meters
       )
-      setReports(nearbyReports)
+
+      // Add distance calculation to each report
+      const reportsWithDistance = nearbyReports.map(report => ({
+        ...report,
+        distance: calculateDistance(
+          location.latitude,
+          location.longitude,
+          report.latitude,
+          report.longitude
+        )
+      }))
+
+      console.log('🗺️ HomeScreen: Loaded', reportsWithDistance.length, 'nearby reports')
+      setReports(reportsWithDistance)
     } catch (error) {
-      console.error("Failed to load nearby reports:", error)
-      // Fallback to dummy data
-      const nearbyReports = generateNearbyReports(location)
-      setReports(nearbyReports)
+      console.error('🗺️ HomeScreen: Failed to load nearby reports:', error)
+      // Don't show error alert, just use empty array
+      setReports([])
     } finally {
       setLoadingReports(false)
     }
@@ -129,7 +133,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
       <View style={styles.mapContainer}>
         <MapComponent
-          location={location}
+          location={location || undefined}
           reports={reports}
           showUserLocation={true}
           followUserLocation={false}

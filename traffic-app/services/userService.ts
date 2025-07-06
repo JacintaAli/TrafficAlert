@@ -125,13 +125,7 @@ class UserService {
     return this.currentUser
   }
 
-  // Update user profile
-  async updateProfile(updates: Partial<UserProfile>): Promise<void> {
-    if (this.currentUser) {
-      this.currentUser = { ...this.currentUser, ...updates }
-      await this.saveProfile()
-    }
-  }
+
 
   // Update user preferences
   async updatePreferences(preferences: Partial<UserPreferences>): Promise<void> {
@@ -293,13 +287,43 @@ class UserService {
     ].sort((a, b) => b.level - a.level)
   }
 
-  // Update user profile
+  // Update user profile with backend integration
   async updateProfile(updatedProfile: UserProfile): Promise<void> {
     try {
-      this.currentUser = updatedProfile
-      await this.saveProfile()
+      console.log('📝 UserService: Updating profile...')
+
+      // Prepare data for backend (only send fields that backend accepts)
+      const backendUpdateData = {
+        name: updatedProfile.username, // Backend expects 'name' not 'username'
+        // Note: Email updates are not supported by backend validation schema
+        // phone: updatedProfile.phone, // Add if we have phone field
+        // quickDestinations: updatedProfile.quickDestinations, // Add if we have this field
+      }
+
+      console.log('📝 UserService: Sending profile update to backend:', backendUpdateData)
+
+      // Update on backend first
+      const response = await apiService.updateProfile(backendUpdateData)
+      console.log('📝 UserService: Backend update response:', response)
+
+      if (response.success) {
+        console.log('📝 UserService: Backend update successful')
+
+        // Update local profile, preserving local-only fields like avatar
+        const currentAvatar = this.currentUser?.avatar
+        this.currentUser = {
+          ...updatedProfile,
+          // Preserve local avatar if it exists and wasn't changed in this update
+          avatar: updatedProfile.avatar || currentAvatar
+        }
+        await this.saveProfile()
+
+        console.log('📝 UserService: Profile updated successfully, preserved avatar:', this.currentUser.avatar)
+      } else {
+        throw new Error(response.message || 'Failed to update profile on backend')
+      }
     } catch (error) {
-      console.error('Error updating user profile:', error)
+      console.error('📝 UserService: Error updating user profile:', error)
       throw error
     }
   }
@@ -307,7 +331,9 @@ class UserService {
   // Authentication methods
   async login(email: string, password: string): Promise<{ success: boolean; user?: UserProfile; message?: string }> {
     try {
+      console.log('🔐 UserService: Attempting login for:', email)
       const response = await apiService.login({ email, password })
+      console.log('🔐 UserService: Login response:', response)
 
       if (response.success && response.data.user) {
         // Convert backend user to our UserProfile format
@@ -318,21 +344,26 @@ class UserService {
         // Ensure the token is set in apiService
         if (response.data.token) {
           apiService.setToken(response.data.token)
+          console.log('🔐 UserService: Token set successfully')
         }
 
+        console.log('🔐 UserService: Login successful for user:', user.username)
         return { success: true, user }
       } else {
+        console.log('🔐 UserService: Login failed:', response.message)
         return { success: false, message: response.message || 'Login failed' }
       }
     } catch (error) {
-      console.error('Login error:', error)
-      return { success: false, message: error.message || 'Network error. Please try again.' }
+      console.error('🔐 UserService: Login error:', error)
+      return { success: false, message: (error as Error).message || 'Network error. Please try again.' }
     }
   }
 
   async register(userData: { name: string; email: string; password: string; phone?: string }): Promise<{ success: boolean; user?: UserProfile; message?: string }> {
     try {
+      console.log('👤 UserService: Attempting registration for:', userData.email)
       const response = await apiService.register(userData)
+      console.log('👤 UserService: Registration response:', response)
 
       if (response.success && response.data.user) {
         // Convert backend user to our UserProfile format
@@ -343,30 +374,28 @@ class UserService {
         // Ensure the token is set in apiService
         if (response.data.token) {
           apiService.setToken(response.data.token)
+          console.log('👤 UserService: Token set successfully')
         }
 
+        console.log('👤 UserService: Registration successful for user:', user.username)
         return { success: true, user }
       } else {
+        console.log('👤 UserService: Registration failed:', response.message)
         return { success: false, message: response.message || 'Registration failed' }
       }
     } catch (error) {
-      console.error('Registration error:', error)
-      return { success: false, message: error.message || 'Network error. Please try again.' }
+      console.error('👤 UserService: Registration error:', error)
+      return { success: false, message: (error as Error).message || 'Network error. Please try again.' }
     }
   }
 
-  async logout(): Promise<void> {
-    try {
-      await apiService.logout()
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      await this.clearUserData()
-    }
-  }
+
 
   // Convert backend user format to our UserProfile format
   private convertBackendUserToProfile(backendUser: any): UserProfile {
+    console.log('🔄 UserService: Converting backend user:', backendUser)
+    console.log('🔄 UserService: Backend profilePicture:', backendUser.profilePicture)
+
     return {
       id: backendUser.id || backendUser._id,
       username: backendUser.name,
@@ -404,6 +433,119 @@ class UserService {
       badges: [], // Not implemented in backend yet
       level: Math.floor((backendUser.stats?.reportsSubmitted || 0) / 10) + 1,
       experience: (backendUser.stats?.reportsSubmitted || 0) * 10
+    }
+  }
+
+  // Logout method
+  async logout(): Promise<{ success: boolean; message?: string }> {
+    try {
+      console.log('🚪 UserService: Logging out user')
+
+      // Call backend logout if we have a token
+      try {
+        await apiService.logout()
+      } catch (error) {
+        console.log('🚪 UserService: Backend logout failed (continuing with local logout):', error)
+      }
+
+      // Clear local data
+      await this.clearUserData()
+
+      // Clear token from apiService
+      apiService.setToken(null)
+      await AsyncStorage.removeItem('authToken')
+
+      console.log('🚪 UserService: Logout successful')
+      return { success: true }
+    } catch (error) {
+      console.error('🚪 UserService: Logout error:', error)
+      return { success: false, message: 'Failed to logout properly' }
+    }
+  }
+
+  // Upload profile picture
+  async uploadProfilePicture(imageUri: string): Promise<string> {
+    try {
+      console.log('📸 UserService: Uploading profile picture from:', imageUri)
+
+      // Prepare image file for upload
+      const imageFile = {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: `profile_${Date.now()}.jpg`
+      }
+
+      console.log('📸 UserService: Image file prepared:', imageFile)
+      const response = await apiService.uploadProfilePicture(imageFile)
+      console.log('📸 UserService: Upload response:', response)
+
+      if (response.success && response.data?.profilePicture) {
+        console.log('📸 UserService: Profile picture uploaded successfully to:', response.data.profilePicture)
+        return response.data.profilePicture
+      } else {
+        console.error('📸 UserService: Upload failed - Response:', response)
+        throw new Error(response.message || 'Failed to upload profile picture')
+      }
+    } catch (error) {
+      console.error('📸 UserService: Error uploading profile picture:', error)
+      console.error('📸 UserService: Error details:', (error as Error).message)
+      throw error
+    }
+  }
+
+  // Get user stats from backend
+  async getUserStats(): Promise<UserStats | null> {
+    try {
+      console.log('📊 UserService: Fetching user stats from backend...')
+      const response = await apiService.getUserStats()
+
+      if (response.success && response.data) {
+        console.log('📊 UserService: User stats fetched successfully')
+        return {
+          reportsSubmitted: response.data.reportsSubmitted || 0,
+          reportsVerified: response.data.reportsVerified || 0,
+          upvotesReceived: response.data.upvotesReceived || 0,
+          helpfulVotes: response.data.helpfulVotes || 0,
+          distanceTraveled: response.data.distanceTraveled || 0,
+          timesSaved: response.data.timesSaved || 0
+        }
+      } else {
+        console.log('📊 UserService: Failed to fetch user stats:', response.message)
+        return null
+      }
+    } catch (error) {
+      console.error('📊 UserService: Error fetching user stats:', error)
+      return null
+    }
+  }
+
+  // Refresh profile from backend
+  async refreshProfileFromBackend(): Promise<UserProfile | null> {
+    try {
+      console.log('🔄 UserService: Refreshing profile from backend...')
+      const response = await apiService.getUserProfile()
+
+      if (response.success && response.data.user) {
+        const currentAvatar = this.currentUser?.avatar
+        const user = this.convertBackendUserToProfile(response.data.user)
+
+        // Preserve local avatar if backend doesn't have one
+        if (!user.avatar && currentAvatar) {
+          user.avatar = currentAvatar
+          console.log('🔄 UserService: Preserved local avatar during refresh')
+        }
+
+        this.currentUser = user
+        await this.saveProfile()
+        console.log('🔄 UserService: Profile refreshed successfully, final avatar:', user.avatar)
+        return user
+      } else {
+        console.log('🔄 UserService: Failed to refresh profile:', response.message)
+        return null
+      }
+    } catch (error) {
+      console.error('🔄 UserService: Error refreshing profile:', error)
+      return null
     }
   }
 

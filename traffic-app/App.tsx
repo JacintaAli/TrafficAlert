@@ -26,6 +26,7 @@ import NavigationScreen from "./screens/NavigationScreen"
 import AllReportsScreen from "./screens/AllReportsScreen"
 import ReportDetailsScreen from "./screens/ReportDetailsScreen"
 import MyReportsScreen from "./screens/MyReportsScreen"
+import UserAvatar, { UserAvatarSizes } from "./components/UserAvatar"
 
 // Import services
 import { notificationService } from "./services/notificationService"
@@ -58,7 +59,16 @@ function MainTabs() {
           } else if (route.name === "Alerts") {
             iconName = focused ? "notifications" : "notifications-outline"
           } else if (route.name === "Profile") {
-            iconName = focused ? "person" : "person-outline"
+            // Use UserAvatar for Profile tab
+            return (
+              <UserAvatar
+                size={size}
+                backgroundColor={focused ? color : theme.colors.surface}
+                iconColor={focused ? "#fff" : color}
+                showBorder={focused}
+                borderColor={color}
+              />
+            )
           } else {
             iconName = "home-outline"
           }

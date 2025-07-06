@@ -73,7 +73,7 @@ export default function ReportIncidentScreen({ navigation, route }: ReportIncide
 
     try {
       // Check if user is logged in
-      const currentUser = await userService.getCurrentUser()
+      const currentUser = userService.getCurrentUser()
       if (!currentUser) {
         Alert.alert(
           "Authentication Required",
@@ -105,7 +105,7 @@ export default function ReportIncidentScreen({ navigation, route }: ReportIncide
       ])
     } catch (error) {
       console.error('Submit report error:', error)
-      Alert.alert("Error", error.message || "Failed to submit report. Please try again.")
+      Alert.alert("Error", (error as Error).message || "Failed to submit report. Please try again.")
     } finally {
       setIsSubmitting(false)
     }

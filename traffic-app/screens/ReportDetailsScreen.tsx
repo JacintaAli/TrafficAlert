@@ -18,6 +18,7 @@ import {
 import { Ionicons } from "@expo/vector-icons"
 import { useTheme } from "../contexts/ThemeContext"
 import { reportService } from "../services/reportService"
+import UserAvatar, { UserAvatarSizes } from "../components/UserAvatar"
 import MapComponent from "../components/MapComponent"
 
 interface ReportDetailsScreenProps {
@@ -252,9 +253,16 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
   const renderComment = (comment: typeof dummyComments[0]) => (
     <View key={comment.id} style={[styles.commentCard, { backgroundColor: theme.colors.surface }]}>
       <View style={styles.commentHeader}>
-        <Ionicons name={comment.avatar as any} size={32} color={theme.colors.textSecondary} />
+        <UserAvatar
+          size={UserAvatarSizes.medium}
+          backgroundColor={theme.colors.background}
+          iconColor={theme.colors.textSecondary}
+          // For dummy comments, just use default avatar (will be fixed when we integrate real comments)
+        />
         <View style={styles.commentUserInfo}>
-          <Text style={[styles.commentUser, { color: theme.colors.text }]}>{comment.user}</Text>
+          <Text style={[styles.commentUser, { color: theme.colors.text }]}>
+            {comment.user}
+          </Text>
           <Text style={[styles.commentTime, { color: theme.colors.textSecondary }]}>{comment.time}</Text>
         </View>
         <TouchableOpacity style={[styles.commentUpvote, { backgroundColor: theme.colors.success + '20' }]}>
