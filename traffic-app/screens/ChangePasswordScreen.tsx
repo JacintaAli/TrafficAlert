@@ -13,6 +13,7 @@ import {
   Alert,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { userService } from "../services/userService"
 
 interface ChangePasswordScreenProps {
   navigation: any
@@ -69,23 +70,28 @@ export default function ChangePasswordScreen({ navigation }: ChangePasswordScree
     }
 
     setIsLoading(true)
-    
+
     try {
-      // Simulate API call for password change
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      Alert.alert(
-        "Password Changed!",
-        "Your password has been successfully updated.",
-        [
-          {
-            text: "OK",
-            onPress: () => navigation.goBack()
-          }
-        ]
-      )
+      console.log('🔐 ChangePasswordScreen: Attempting password change...')
+      const result = await userService.changePassword(currentPassword, newPassword)
+
+      if (result.success) {
+        Alert.alert(
+          "Password Changed!",
+          "Your password has been successfully updated.",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.goBack()
+            }
+          ]
+        )
+      } else {
+        Alert.alert("Error", result.message || "Failed to change password. Please try again.")
+      }
     } catch (error) {
-      Alert.alert("Error", "Failed to change password. Please try again.")
+      console.error('🔐 ChangePasswordScreen: Error changing password:', error)
+      Alert.alert("Error", "Network error. Please check your connection and try again.")
     } finally {
       setIsLoading(false)
     }

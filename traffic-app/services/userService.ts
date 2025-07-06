@@ -493,6 +493,28 @@ class UserService {
     }
   }
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      console.log('🔐 UserService: Attempting password change...')
+      const response = await apiService.changePassword({
+        currentPassword,
+        newPassword
+      })
+      console.log('🔐 UserService: Password change response:', response)
+
+      if (response.success) {
+        console.log('🔐 UserService: Password changed successfully')
+        return { success: true, message: response.message || 'Password changed successfully' }
+      } else {
+        console.error('🔐 UserService: Password change failed:', response.message)
+        return { success: false, message: response.message || 'Failed to change password' }
+      }
+    } catch (error) {
+      console.error('🔐 UserService: Password change error:', error)
+      return { success: false, message: (error as Error).message || 'Network error. Please try again.' }
+    }
+  }
+
   // Get user stats from backend
   async getUserStats(): Promise<UserStats | null> {
     try {
