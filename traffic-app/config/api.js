@@ -7,18 +7,27 @@
 // Look for your local network IP (usually starts with 192.168.x.x or 10.x.x.x)
 
 export const API_CONFIG = {
+<<<<<<< Updated upstream
   // Your computer's IP address (corrected to working IP)
   BASE_URL: 'http://172.20.10.3:5002/api',
 
+=======
+  // Your computer's IP address (updated with current IP)
+  BASE_URL: 'http://172.20.10.3:5002/api',
+>>>>>>> Stashed changes
   // Alternative configurations for different testing scenarios:
-  LOCALHOST: 'http://localhost:5002/api',           // For web testing
-  ANDROID_EMULATOR: 'http://10.0.2.2:5002/api',    // For Android emulator
-  IOS_SIMULATOR: 'http://localhost:5002/api',       // For iOS simulator
+  LOCALHOST: 'http://localhost:5001/api',           // For web testing
+  ANDROID_EMULATOR: 'http://10.0.2.2:5001/api',    // For Android emulator
+  IOS_SIMULATOR: 'http://localhost:5001/api',       // For iOS simulator
 
   // Previous IP (in case you need to switch back):
   // BASE_URL: 'http://172.20.10.2:5002/api',
 
+<<<<<<< Updated upstream
   TIMEOUT: 30000, // 30 seconds (increased for mobile network reliability)
+=======
+  TIMEOUT: 30000, // 30 seconds
+>>>>>>> Stashed changes
   RETRY_ATTEMPTS: 3,
 }
 

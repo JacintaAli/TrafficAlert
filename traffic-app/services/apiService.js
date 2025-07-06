@@ -31,10 +31,12 @@ class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const token = await this.getToken();
 
-    console.log('API Request:', endpoint, `(attempt ${retryCount + 1})`);
-    console.log('Token available:', token ? 'Yes' : 'No');
-    console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'None');
-    console.log('Request method:', options.method || 'GET');
+    console.log('🌐 API Request:', endpoint, `(attempt ${retryCount + 1})`);
+    console.log('🌐 Full URL:', url);
+    console.log('🔑 Token available:', token ? 'Yes' : 'No');
+    console.log('🔑 Token preview:', token ? token.substring(0, 20) + '...' : 'None');
+    console.log('📤 Request method:', options.method || 'GET');
+    console.log('⏱️ Timeout set to:', API_CONFIG.TIMEOUT, 'ms');
 
     // Build headers with proper precedence
     const headers = {
@@ -55,29 +57,21 @@ class ApiService {
     console.log('Request headers:', JSON.stringify(headers, null, 2));
 
     try {
-      const startTime = Date.now();
-      console.log(`⏰ Starting request at: ${new Date().toISOString()}`);
-      console.log(`🎯 Request URL: ${url}`);
-      console.log(`⏱️  Timeout set to: ${API_CONFIG.TIMEOUT || 30000}ms`);
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ Request timeout reached, aborting...');
+        controller.abort();
+      }, API_CONFIG.TIMEOUT);
 
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          const elapsed = Date.now() - startTime;
-          console.log(`⏰ Request timed out after ${elapsed}ms`);
-          reject(new Error('Network request timed out'));
-        }, API_CONFIG.TIMEOUT || 30000);
+      console.log('🚀 Making fetch request...');
+      const response = await fetch(url, {
+        ...config,
+        signal: controller.signal
       });
 
-      // Race between fetch and timeout
-      const response = await Promise.race([
-        fetch(url, config),
-        timeoutPromise
-      ]);
-
-      const elapsed = Date.now() - startTime;
-      console.log(`✅ Response received after ${elapsed}ms`);
-
+      clearTimeout(timeoutId);
+      console.log('✅ Fetch request completed, status:', response.status);
       const data = await response.json();
 
       console.log('Response status:', response.status);
@@ -107,24 +101,14 @@ class ApiService {
     } catch (error) {
       console.error('API Error:', error);
 
-      // Check if we should retry
-      const maxRetries = API_CONFIG.RETRY_ATTEMPTS || 3;
-      const isNetworkError = error.message === 'Network request timed out' ||
-                            error.message.includes('Network request failed') ||
-                            error.name === 'TypeError';
-
-      if (isNetworkError && retryCount < maxRetries - 1) {
-        console.log(`🔄 Retrying request... (${retryCount + 1}/${maxRetries})`);
-        // Wait before retrying (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
-        return this.request(endpoint, options, retryCount + 1);
+      // Handle specific error types
+      if (error.name === 'AbortError') {
+        throw new Error('Network request timed out. Please check your connection and try again.');
       }
 
-      // Provide more specific error messages
-      if (error.message === 'Network request timed out') {
-        throw new Error('Connection timed out. Please check your internet connection and try again.');
-      } else if (error.message.includes('Network request failed') || error.name === 'TypeError') {
-        throw new Error('Unable to connect to server. Please check your internet connection.');
+      if (error.message.includes('Network request failed')) {
+        throw new Error('Network request failed. Please check your internet connection.');
+      }
       }
 
       throw error;

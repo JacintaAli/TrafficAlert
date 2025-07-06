@@ -293,11 +293,17 @@ class UserService {
       console.log('📝 UserService: Updating profile...')
 
       // Prepare data for backend (only send fields that backend accepts)
-      const backendUpdateData = {
+      const backendUpdateData: any = {
         name: updatedProfile.username, // Backend expects 'name' not 'username'
         // Note: Email updates are not supported by backend validation schema
         // phone: updatedProfile.phone, // Add if we have phone field
         // quickDestinations: updatedProfile.quickDestinations, // Add if we have this field
+      }
+
+      // Include profile picture if it's a Cloudinary URL (uploaded to cloud)
+      if (updatedProfile.avatar && updatedProfile.avatar.includes('cloudinary.com')) {
+        backendUpdateData.profilePicture = updatedProfile.avatar
+        console.log('📝 UserService: Including profile picture in backend update')
       }
 
       console.log('📝 UserService: Sending profile update to backend:', backendUpdateData)

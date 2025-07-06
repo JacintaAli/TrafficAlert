@@ -15,9 +15,13 @@ console.log('Express app created');
 // Import routes
 console.log('Loading routes...');
 const authRoutes = require('./routes/auth');
+console.log('Auth routes loaded');
 const userRoutes = require('./routes/users');
+console.log('User routes loaded');
 const reportRoutes = require('./routes/reports');
+console.log('Report routes loaded');
 const notificationRoutes = require('./routes/notifications');
+console.log('Notification routes loaded');
 console.log('Routes loaded successfully');
 
 // Middleware
@@ -87,14 +91,17 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     console.log('🚀 Starting server...');
-    await connectDB();
 
+    // Start server first, then connect to DB in background
     app.listen(PORT, () => {
       console.log(`✅ TrafficAlert API Server running on port ${PORT}`);
       console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log('🎯 Server is ready to accept connections!');
     });
+
+    // Connect to DB in background
+    connectDB();
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);

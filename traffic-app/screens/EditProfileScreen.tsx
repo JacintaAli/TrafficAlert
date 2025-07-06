@@ -95,12 +95,26 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
       console.log('💾 EditProfileScreen: Saving profile changes...')
 
       if (userProfile) {
-        // Handle profile picture (temporarily save locally only)
+        // Handle profile picture upload
         let profilePictureUrl = userProfile.avatar
 
         if (profileImage && profileImage !== userProfile.avatar) {
-          console.log('📸 EditProfileScreen: New profile picture selected (saving locally for now)')
-          profilePictureUrl = profileImage
+          console.log('📸 EditProfileScreen: New profile picture selected, attempting upload...')
+          try {
+            profilePictureUrl = await userService.uploadProfilePicture(profileImage)
+            console.log('📸 EditProfileScreen: Profile picture uploaded successfully:', profilePictureUrl)
+          } catch (error) {
+            console.error('📸 EditProfileScreen: Failed to upload profile picture:', error)
+            console.error('📸 EditProfileScreen: Error details:', (error as Error).message)
+
+            // Fall back to local storage for now
+            profilePictureUrl = profileImage
+            Alert.alert(
+              "Profile Picture",
+              "Profile picture saved locally. Upload to cloud storage failed, but your picture will be visible in the app.",
+              [{ text: "OK", style: "default" }]
+            )
+          }
         }
 
         // Update user profile
