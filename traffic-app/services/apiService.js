@@ -1,15 +1,25 @@
 // API Service for TrafficAlert React Native App
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG } from '../config/api';
+
+// Inline config to avoid import issues
+const API_CONFIG = {
+  BASE_URL: 'http://172.20.10.2:5001/api',
+  TIMEOUT: 30000,
+  RETRY_ATTEMPTS: 3,
+};
+
+console.log('🔧 ApiService: Using inline API_CONFIG:', API_CONFIG);
 
 // Use the configured base URL
 const API_BASE_URL = API_CONFIG.BASE_URL;
+console.log('🔧 ApiService: Using BASE_URL:', API_BASE_URL);
 
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
     this.token = null;
     console.log('🔧 ApiService initialized with baseURL:', this.baseURL);
+    console.log('🔧 API_CONFIG:', API_CONFIG);
     console.log('🔧 API_CONFIG.BASE_URL:', API_CONFIG.BASE_URL);
   }
 
@@ -109,7 +119,6 @@ class ApiService {
       if (error.message.includes('Network request failed')) {
         throw new Error('Network request failed. Please check your internet connection.');
       }
-      }
 
       throw error;
     }
@@ -198,7 +207,9 @@ class ApiService {
   }
 
   async getReports(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
+    // Default to showing all reports (including expired ones)
+    const defaultParams = { status: 'all', ...params };
+    const queryString = new URLSearchParams(defaultParams).toString();
     return await this.request(`/reports?${queryString}`);
   }
 
@@ -227,16 +238,59 @@ class ApiService {
     });
   }
 
+  async upvoteComment(reportId, commentId) {
+    return await this.request(`/reports/${reportId}/comments/${commentId}/upvote`, {
+      method: 'POST',
+    });
+  }
+
+  async removeCommentUpvote(reportId, commentId) {
+    return await this.request(`/reports/${reportId}/comments/${commentId}/upvote`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteComment(reportId, commentId) {
+    return await this.request(`/reports/${reportId}/comments/${commentId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async addReply(reportId, commentId, replyData) {
+    return await this.request(`/reports/${reportId}/comments/${commentId}/replies`, {
+      method: 'POST',
+      body: JSON.stringify(replyData),
+    });
+  }
+
+  async deleteReply(reportId, commentId, replyId) {
+    return await this.request(`/reports/${reportId}/comments/${commentId}/replies/${replyId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async upvoteReply(reportId, commentId, replyId) {
+    return await this.request(`/reports/${reportId}/comments/${commentId}/replies/${replyId}/upvote`, {
+      method: 'POST',
+    });
+  }
+
   // User methods
   async getUserProfile() {
     return await this.request('/users/profile');
   }
 
   async updateProfile(profileData) {
-    return await this.request('/users/profile', {
+    console.log('🔧 ApiService: updateProfile called with data:', profileData);
+    console.log('🔧 ApiService: Stringified data:', JSON.stringify(profileData));
+
+    const response = await this.request('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
+
+    console.log('🔧 ApiService: updateProfile response:', response);
+    return response;
   }
 
   async getUserStats() {

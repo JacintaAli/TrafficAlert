@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   View,
   Text,
@@ -18,12 +18,46 @@ import {
 import { Ionicons } from "@expo/vector-icons"
 import { useTheme } from "../contexts/ThemeContext"
 import { reportService } from "../services/reportService"
+import { userService } from "../services/userService"
 import UserAvatar, { UserAvatarSizes } from "../components/UserAvatar"
 import MapComponent from "../components/MapComponent"
 
 interface ReportDetailsScreenProps {
   navigation: any
   route: any
+}
+
+interface Reply {
+  id: string
+  user: {
+    _id: string
+    name: string
+    profilePicture?: string
+  }
+  text: string
+  createdAt: string
+  upvoteCount: number
+  upvotes: Array<{
+    user: string
+    votedAt: string
+  }>
+}
+
+interface Comment {
+  id: string
+  user: {
+    _id: string
+    name: string
+    profilePicture?: string
+  }
+  text: string
+  createdAt: string
+  upvoteCount: number
+  upvotes: Array<{
+    user: string
+    votedAt: string
+  }>
+  replies?: Reply[]
 }
 
 // Dummy comments data
@@ -65,8 +99,11 @@ const dummyComments = [
 export default function ReportDetailsScreen({ navigation, route }: ReportDetailsScreenProps) {
   const { theme } = useTheme()
   const { report } = route.params
-  const [comments, setComments] = useState(dummyComments)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loadingComments, setLoadingComments] = useState(true)
   const [newComment, setNewComment] = useState("")
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [newReply, setNewReply] = useState("")
   const [isUpvoted, setIsUpvoted] = useState(false)
   const [isDownvoted, setIsDownvoted] = useState(false)
   const [upvotes, setUpvotes] = useState(report.upvotes)
@@ -93,6 +130,77 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
       savings: "Consistent travel time"
     }
   ])
+
+  // Load comments when component mounts
+  useEffect(() => {
+    loadComments()
+  }, [report.id])
+
+  const loadComments = async () => {
+    if (!report.id) {
+      // If no report ID, fall back to dummy comments for demo
+      setComments(dummyComments.map(comment => ({
+        id: comment.id,
+        user: {
+          _id: 'dummy-user',
+          name: comment.user,
+          profilePicture: undefined
+        },
+        text: comment.comment,
+        createdAt: comment.time,
+        upvoteCount: comment.upvotes || 0,
+        upvotes: []
+      })))
+      setLoadingComments(false)
+      return
+    }
+
+    try {
+      setLoadingComments(true)
+      const reportData = await reportService.getReportById(report.id)
+      if (reportData && reportData.interactions && reportData.interactions.comments) {
+        // Transform backend comments to match frontend interface
+        const transformedComments = reportData.interactions.comments.map((c: any) => ({
+          id: c._id, // Convert _id to id
+          user: c.user,
+          text: c.text,
+          createdAt: c.createdAt,
+          upvoteCount: c.upvoteCount || 0,
+          upvotes: c.upvotes || [],
+          replies: c.replies ? c.replies.map((r: any) => ({
+            id: r._id,
+            user: r.user,
+            text: r.text,
+            createdAt: r.createdAt,
+            upvoteCount: r.upvoteCount || 0,
+            upvotes: r.upvotes || []
+          })) : []
+        }))
+        console.log('📝 Loaded comments:', transformedComments.map((c: any) => ({ id: c.id, text: c.text })))
+        setComments(transformedComments)
+      } else {
+        console.log('📝 No comments found in report data')
+        setComments([])
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error)
+      // Fall back to dummy comments on error
+      setComments(dummyComments.map(comment => ({
+        id: comment.id,
+        user: {
+          _id: 'dummy-user',
+          name: comment.user,
+          profilePicture: undefined
+        },
+        text: comment.comment,
+        createdAt: comment.time,
+        upvoteCount: comment.upvotes || 0,
+        upvotes: []
+      })))
+    } finally {
+      setLoadingComments(false)
+    }
+  }
 
   const getSeverityColor = () => {
     if (!report.severity) return '#666'
@@ -178,32 +286,273 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
     }
 
     try {
+      // Get current user info
+      const currentUser = userService.getCurrentUser()
+      if (!currentUser) {
+        Alert.alert("Error", "Please log in to add comments")
+        return
+      }
+
       // Try to add comment via backend if report has an ID
       if (report.id) {
+        console.log('💬 Adding comment to report:', report.id, 'Comment:', newComment.trim())
         await reportService.addComment(report.id, {
           text: newComment.trim(),
-          userId: "current-user-id", // This will be replaced by backend with actual user ID
-          username: "You" // This will be replaced by backend with actual user info
+          userId: currentUser.id,
+          username: currentUser.username
         })
+
+        // Reload comments to get the updated list from backend
+        await loadComments()
+      } else {
+        // Add comment to local state for demo reports
+        const comment: Comment = {
+          id: Date.now().toString(),
+          user: {
+            _id: currentUser.id,
+            name: currentUser.username,
+            profilePicture: currentUser.avatar
+          },
+          text: newComment.trim(),
+          createdAt: new Date().toISOString(),
+          upvoteCount: 0,
+          upvotes: []
+        }
+
+        setComments([comment, ...comments])
       }
 
-      // Add comment to local state
-      const comment = {
-        id: Date.now().toString(),
-        user: "You",
-        avatar: "person-circle",
-        comment: newComment.trim(),
-        time: "now",
-        upvotes: 0,
-      }
-
-      setComments([comment, ...comments])
       setNewComment("")
       commentInputRef.current?.blur()
       Alert.alert("Success", "Comment added successfully!")
     } catch (error) {
       console.error('Error adding comment:', error)
       Alert.alert("Error", "Failed to add comment. Please try again.")
+    }
+  }
+
+  const handleCommentUpvote = async (commentId: string) => {
+    try {
+      // Get current user info
+      const currentUser = userService.getCurrentUser()
+      if (!currentUser) {
+        Alert.alert("Error", "Please log in to upvote comments")
+        return
+      }
+
+      if (!report.id) {
+        Alert.alert("Error", "Cannot upvote comments on demo reports")
+        return
+      }
+
+      // Debug logging
+      console.log('🔍 Upvoting comment:', {
+        reportId: report.id,
+        commentId: commentId,
+        allComments: comments.map(c => ({ id: c.id, text: c.text }))
+      })
+
+      // Check if user has already upvoted this comment
+      const comment = comments.find(c => c.id === commentId)
+      if (!comment) {
+        console.log('❌ Comment not found in local state:', commentId)
+        return
+      }
+
+      const hasUpvoted = comment.upvotes && comment.upvotes.some(upvote => upvote.user === currentUser.id)
+
+      if (hasUpvoted) {
+        // Remove upvote
+        await reportService.removeCommentUpvote(report.id, commentId)
+        Alert.alert("Success", "Upvote removed!")
+      } else {
+        // Add upvote
+        await reportService.upvoteComment(report.id, commentId)
+        Alert.alert("Success", "Comment upvoted!")
+      }
+
+      // Reload comments to get updated upvote counts
+      await loadComments()
+    } catch (error) {
+      console.error('Error handling comment upvote:', error)
+      Alert.alert("Error", "Failed to update upvote. Please try again.")
+    }
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      // Get current user info
+      const currentUser = userService.getCurrentUser()
+      if (!currentUser) {
+        Alert.alert("Error", "Please log in to delete comments")
+        return
+      }
+
+      if (!report.id) {
+        Alert.alert("Error", "Cannot delete comments on demo reports")
+        return
+      }
+
+      // Find the comment to check ownership
+      const comment = comments.find(c => c.id === commentId)
+      if (!comment) {
+        Alert.alert("Error", "Comment not found")
+        return
+      }
+
+      // Check if user owns this comment
+      if (comment.user._id !== currentUser.id) {
+        Alert.alert("Error", "You can only delete your own comments")
+        return
+      }
+
+      // Show confirmation dialog
+      Alert.alert(
+        "Delete Comment",
+        "Are you sure you want to delete this comment?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await reportService.deleteComment(report.id, commentId)
+                Alert.alert("Success", "Comment deleted successfully!")
+                // Reload comments to get updated list
+                await loadComments()
+              } catch (error) {
+                console.error('Error deleting comment:', error)
+                Alert.alert("Error", "Failed to delete comment. Please try again.")
+              }
+            }
+          }
+        ]
+      )
+    } catch (error) {
+      console.error('Error handling comment deletion:', error)
+      Alert.alert("Error", "Failed to delete comment. Please try again.")
+    }
+  }
+
+  const handleReply = (commentId: string) => {
+    setReplyingTo(commentId)
+    setNewReply("")
+  }
+
+  const handleCancelReply = () => {
+    setReplyingTo(null)
+    setNewReply("")
+  }
+
+  const handleAddReply = async (commentId: string) => {
+    if (!newReply.trim()) {
+      Alert.alert("Error", "Please enter a reply")
+      return
+    }
+
+    try {
+      // Get current user info
+      const currentUser = userService.getCurrentUser()
+      if (!currentUser) {
+        Alert.alert("Error", "Please log in to add replies")
+        return
+      }
+
+      if (!report.id) {
+        Alert.alert("Error", "Cannot add replies on demo reports")
+        return
+      }
+
+      await reportService.addReply(report.id, commentId, {
+        text: newReply.trim(),
+        userId: currentUser.id,
+        username: currentUser.username
+      })
+
+      setNewReply("")
+      setReplyingTo(null)
+      Alert.alert("Success", "Reply added successfully!")
+
+      // Reload comments to get updated list with new reply
+      await loadComments()
+    } catch (error) {
+      console.error('Error adding reply:', error)
+      Alert.alert("Error", "Failed to add reply. Please try again.")
+    }
+  }
+
+  const handleDeleteReply = async (commentId: string, replyId: string) => {
+    try {
+      // Get current user info
+      const currentUser = userService.getCurrentUser()
+      if (!currentUser) {
+        Alert.alert("Error", "Please log in to delete replies")
+        return
+      }
+
+      if (!report.id) {
+        Alert.alert("Error", "Cannot delete replies on demo reports")
+        return
+      }
+
+      // Show confirmation dialog
+      Alert.alert(
+        "Delete Reply",
+        "Are you sure you want to delete this reply?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await reportService.deleteReply(report.id, commentId, replyId)
+                Alert.alert("Success", "Reply deleted successfully!")
+                // Reload comments to get updated list
+                await loadComments()
+              } catch (error) {
+                console.error('Error deleting reply:', error)
+                Alert.alert("Error", "Failed to delete reply. Please try again.")
+              }
+            }
+          }
+        ]
+      )
+    } catch (error) {
+      console.error('Error handling reply deletion:', error)
+      Alert.alert("Error", "Failed to delete reply. Please try again.")
+    }
+  }
+
+  const handleReplyUpvote = async (commentId: string, replyId: string) => {
+    try {
+      // Get current user info
+      const currentUser = userService.getCurrentUser()
+      if (!currentUser) {
+        Alert.alert("Error", "Please log in to upvote replies")
+        return
+      }
+
+      if (!report.id) {
+        Alert.alert("Error", "Cannot upvote replies on demo reports")
+        return
+      }
+
+      await reportService.upvoteReply(report.id, commentId, replyId)
+      Alert.alert("Success", "Reply upvoted!")
+
+      // Reload comments to get updated upvote counts
+      await loadComments()
+    } catch (error) {
+      console.error('Error upvoting reply:', error)
+      Alert.alert("Error", "Failed to upvote reply. Please try again.")
     }
   }
 
@@ -250,29 +599,194 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
     }
   }
 
-  const renderComment = (comment: typeof dummyComments[0]) => (
-    <View key={comment.id} style={[styles.commentCard, { backgroundColor: theme.colors.surface }]}>
-      <View style={styles.commentHeader}>
-        <UserAvatar
-          size={UserAvatarSizes.medium}
-          backgroundColor={theme.colors.background}
-          iconColor={theme.colors.textSecondary}
-          // For dummy comments, just use default avatar (will be fixed when we integrate real comments)
-        />
-        <View style={styles.commentUserInfo}>
-          <Text style={[styles.commentUser, { color: theme.colors.text }]}>
-            {comment.user}
-          </Text>
-          <Text style={[styles.commentTime, { color: theme.colors.textSecondary }]}>{comment.time}</Text>
+  const formatTimeAgo = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+      if (diffInSeconds < 60) return 'now'
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
+      return `${Math.floor(diffInSeconds / 86400)}d ago`
+    } catch {
+      return dateString // fallback to original string if parsing fails
+    }
+  }
+
+  const renderReply = (reply: Reply, commentId: string) => {
+    const currentUser = userService.getCurrentUser()
+    const hasUpvoted = currentUser && reply.upvotes && reply.upvotes.some(upvote => upvote.user === currentUser.id)
+    const isOwner = currentUser && reply.user._id === currentUser.id
+
+    return (
+      <View key={reply.id} style={[styles.replyCard, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.commentHeader}>
+          <UserAvatar
+            size={UserAvatarSizes.small}
+            backgroundColor={theme.colors.background}
+            iconColor={theme.colors.textSecondary}
+            userAvatar={reply.user.profilePicture}
+            userName={reply.user.name}
+          />
+          <View style={styles.commentUserInfo}>
+            <Text style={[styles.commentUser, { color: theme.colors.text }]}>
+              {reply.user.name}
+            </Text>
+            <Text style={[styles.commentTime, { color: theme.colors.textSecondary }]}>
+              {formatTimeAgo(reply.createdAt)}
+            </Text>
+          </View>
+          <View style={styles.commentActions}>
+            <TouchableOpacity
+              style={[
+                styles.commentUpvote,
+                {
+                  backgroundColor: hasUpvoted
+                    ? theme.colors.success + '40'
+                    : theme.colors.success + '20'
+                }
+              ]}
+              onPress={() => handleReplyUpvote(commentId, reply.id)}
+            >
+              <Ionicons
+                name={hasUpvoted ? "thumbs-up" : "thumbs-up-outline"}
+                size={14}
+                color={theme.colors.success}
+              />
+              <Text style={[styles.commentUpvoteText, { color: theme.colors.success }]}>
+                {reply.upvoteCount || 0}
+              </Text>
+            </TouchableOpacity>
+            {isOwner && (
+              <TouchableOpacity
+                style={[styles.commentDelete, { backgroundColor: theme.colors.error + '20' }]}
+                onPress={() => handleDeleteReply(commentId, reply.id)}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={14}
+                  color={theme.colors.error}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <TouchableOpacity style={[styles.commentUpvote, { backgroundColor: theme.colors.success + '20' }]}>
-          <Ionicons name="thumbs-up" size={16} color={theme.colors.success} />
-          <Text style={[styles.commentUpvoteText, { color: theme.colors.success }]}>{comment.upvotes}</Text>
-        </TouchableOpacity>
+        <Text style={[styles.replyText, { color: theme.colors.text }]}>{reply.text}</Text>
       </View>
-      <Text style={[styles.commentText, { color: theme.colors.text }]}>{comment.comment}</Text>
-    </View>
-  )
+    )
+  }
+
+  const renderComment = (comment: Comment) => {
+    // Check if current user has upvoted this comment
+    const currentUser = userService.getCurrentUser()
+    const hasUpvoted = currentUser && comment.upvotes && comment.upvotes.some(upvote => upvote.user === currentUser.id)
+    const isOwner = currentUser && comment.user._id === currentUser.id
+
+    return (
+      <View key={comment.id} style={[styles.commentCard, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.commentHeader}>
+          <UserAvatar
+            size={UserAvatarSizes.medium}
+            backgroundColor={theme.colors.background}
+            iconColor={theme.colors.textSecondary}
+            userAvatar={comment.user.profilePicture}
+            userName={comment.user.name}
+          />
+          <View style={styles.commentUserInfo}>
+            <Text style={[styles.commentUser, { color: theme.colors.text }]}>
+              {comment.user.name}
+            </Text>
+            <Text style={[styles.commentTime, { color: theme.colors.textSecondary }]}>
+              {formatTimeAgo(comment.createdAt)}
+            </Text>
+          </View>
+          <View style={styles.commentActions}>
+            <TouchableOpacity
+              style={[
+                styles.commentUpvote,
+                {
+                  backgroundColor: hasUpvoted
+                    ? theme.colors.success + '40'
+                    : theme.colors.success + '20'
+                }
+              ]}
+              onPress={() => handleCommentUpvote(comment.id)}
+            >
+              <Ionicons
+                name={hasUpvoted ? "thumbs-up" : "thumbs-up-outline"}
+                size={16}
+                color={theme.colors.success}
+              />
+              <Text style={[styles.commentUpvoteText, { color: theme.colors.success }]}>
+                {comment.upvoteCount || 0}
+              </Text>
+            </TouchableOpacity>
+            {isOwner && (
+              <TouchableOpacity
+                style={[styles.commentDelete, { backgroundColor: theme.colors.error + '20' }]}
+                onPress={() => handleDeleteComment(comment.id)}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={16}
+                  color={theme.colors.error}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        <Text style={[styles.commentText, { color: theme.colors.text }]}>{comment.text}</Text>
+
+        {/* Reply button */}
+        <TouchableOpacity
+          style={styles.replyButton}
+          onPress={() => handleReply(comment.id)}
+        >
+          <Ionicons name="chatbubble-outline" size={14} color={theme.colors.textSecondary} />
+          <Text style={[styles.replyButtonText, { color: theme.colors.textSecondary }]}>
+            Reply {comment.replies && comment.replies.length > 0 ? `(${comment.replies.length})` : ''}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Replies */}
+        {comment.replies && comment.replies.length > 0 && (
+          <View style={styles.repliesContainer}>
+            {comment.replies.map(reply => renderReply(reply, comment.id))}
+          </View>
+        )}
+
+        {/* Reply input (shown when replying to this comment) */}
+        {replyingTo === comment.id && (
+          <View style={[styles.replyInputContainer, { borderTopColor: theme.colors.border }]}>
+            <TextInput
+              style={[styles.replyInput, { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border }]}
+              placeholder="Write a reply..."
+              placeholderTextColor={theme.colors.textSecondary}
+              value={newReply}
+              onChangeText={setNewReply}
+              multiline
+              maxLength={200}
+            />
+            <View style={styles.replyInputActions}>
+              <TouchableOpacity
+                style={[styles.cancelReplyButton, { backgroundColor: theme.colors.error + '20' }]}
+                onPress={handleCancelReply}
+              >
+                <Text style={[styles.cancelReplyText, { color: theme.colors.error }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sendReplyButton, { backgroundColor: theme.colors.primary }]}
+                onPress={() => handleAddReply(comment.id)}
+              >
+                <Ionicons name="send" size={16} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+    )
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -347,11 +861,37 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
             </View>
           )}
 
-          {/* Report Image */}
-          {report.image && (
+          {/* Report Images */}
+          {report.images && report.images.length > 0 && (
             <View style={styles.imageSection}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Report Image</Text>
-              <Image source={{ uri: report.image }} style={styles.reportImage} />
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Report Image{report.images.length > 1 ? 's' : ''}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.imagesContainer}
+              >
+                {report.images.map((imageUrl: string, index: number) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.imageWrapper,
+                      index === report.images.length - 1 ? { marginRight: 0 } : {}
+                    ]}
+                    onPress={() => {
+                      // TODO: Add image viewer/zoom functionality
+                      Alert.alert("Image", "Image viewer coming soon!")
+                    }}
+                  >
+                    <Image
+                      source={{ uri: imageUrl }}
+                      style={styles.reportImage}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
 
@@ -449,7 +989,19 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
               </TouchableOpacity>
             </View>
 
-            {comments.map(renderComment)}
+            {loadingComments ? (
+              <View style={styles.loadingContainer}>
+                <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading comments...</Text>
+              </View>
+            ) : comments.length > 0 ? (
+              comments.map(renderComment)
+            ) : (
+              <View style={styles.emptyCommentsContainer}>
+                <Text style={[styles.emptyCommentsText, { color: theme.colors.textSecondary }]}>
+                  No comments yet. Be the first to comment!
+                </Text>
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -580,8 +1132,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
+  imagesContainer: {
+    flexDirection: "row",
+  },
+  imageWrapper: {
+    marginRight: 12,
+  },
   reportImage: {
-    width: "100%",
+    width: 250,
     height: 200,
     borderRadius: 12,
     backgroundColor: "#f5f5f5",
@@ -747,6 +1305,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  commentActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  commentDelete: {
+    padding: 6,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   commentText: {
     fontSize: 14,
     lineHeight: 20,
@@ -780,5 +1349,90 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 14,
+    fontStyle: "italic",
+  },
+  emptyCommentsContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyCommentsText: {
+    fontSize: 14,
+    fontStyle: "italic",
+    textAlign: "center",
+  },
+  replyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: 44,
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  replyButtonText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  repliesContainer: {
+    marginLeft: 20,
+    marginTop: 12,
+    paddingLeft: 16,
+    borderLeftWidth: 2,
+    borderLeftColor: "#E0E0E0",
+  },
+  replyCard: {
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+  },
+  replyText: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginLeft: 36,
+    marginTop: 4,
+  },
+  replyInputContainer: {
+    marginTop: 12,
+    marginLeft: 20,
+    padding: 12,
+    borderTopWidth: 1,
+    borderRadius: 8,
+  },
+  replyInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    maxHeight: 80,
+    marginBottom: 8,
+  },
+  replyInputActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  cancelReplyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  cancelReplyText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  sendReplyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
 })

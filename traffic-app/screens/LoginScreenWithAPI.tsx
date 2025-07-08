@@ -50,7 +50,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       }
     } catch (error) {
       // Handle login error
-      Alert.alert("Login Failed", error.message || "Invalid email or password")
+      const errorMessage = error instanceof Error ? error.message : "Invalid email or password"
+      Alert.alert("Login Failed", errorMessage)
     } finally {
       setLoading(false)
     }

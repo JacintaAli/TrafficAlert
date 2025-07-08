@@ -284,6 +284,21 @@ class ReportService {
     }
   }
 
+  // Get single report by ID
+  async getReportById(reportId: string): Promise<any> {
+    try {
+      const response = await apiService.getReportById(reportId)
+      if (response.success) {
+        return response.data.report
+      } else {
+        throw new Error(response.message || 'Failed to fetch report')
+      }
+    } catch (error) {
+      console.error('Get report by ID error:', error)
+      throw error
+    }
+  }
+
   // Add comment to report
   async addComment(reportId: string, comment: Omit<Comment, 'id' | 'timestamp'>): Promise<void> {
     try {
@@ -314,6 +329,123 @@ class ReportService {
         }
         report.comments.push(newComment)
       }
+      throw error
+    }
+  }
+
+  // Upvote comment
+  async upvoteComment(reportId: string, commentId: string): Promise<void> {
+    try {
+      const response = await apiService.upvoteComment(reportId, commentId)
+      if (response.success) {
+        // Update local cache
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          const comment = report.comments.find(c => c.id === commentId)
+          if (comment) {
+            // Update comment with new upvote data from response
+            // Note: This will be updated when we integrate with the new Comment interface
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Upvote comment error:', error)
+      throw error
+    }
+  }
+
+  // Remove upvote from comment
+  async removeCommentUpvote(reportId: string, commentId: string): Promise<void> {
+    try {
+      const response = await apiService.removeCommentUpvote(reportId, commentId)
+      if (response.success) {
+        // Update local cache
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          const comment = report.comments.find(c => c.id === commentId)
+          if (comment) {
+            // Update comment with new upvote data from response
+            // Note: This will be updated when we integrate with the new Comment interface
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Remove comment upvote error:', error)
+      throw error
+    }
+  }
+
+  // Delete comment
+  async deleteComment(reportId: string, commentId: string): Promise<void> {
+    try {
+      const response = await apiService.deleteComment(reportId, commentId)
+      if (response.success) {
+        // Update local cache by removing the comment
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          report.comments = report.comments.filter(c => c.id !== commentId)
+        }
+      }
+    } catch (error) {
+      console.error('Delete comment error:', error)
+      throw error
+    }
+  }
+
+  // Add reply to comment
+  async addReply(reportId: string, commentId: string, replyData: { text: string; userId: string; username: string }): Promise<void> {
+    try {
+      const response = await apiService.addReply(reportId, commentId, replyData)
+      if (response.success) {
+        // Update local cache - for now just reload comments
+        // In a more sophisticated implementation, we could update the specific comment
+      }
+    } catch (error) {
+      console.error('Add reply error:', error)
+      throw error
+    }
+  }
+
+  // Delete reply
+  async deleteReply(reportId: string, commentId: string, replyId: string): Promise<void> {
+    try {
+      const response = await apiService.deleteReply(reportId, commentId, replyId)
+      if (response.success) {
+        // Update local cache by removing the reply
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          const comment = report.comments.find(c => c.id === commentId)
+          if (comment && comment.replies) {
+            comment.replies = comment.replies.filter(r => r.id !== replyId)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Delete reply error:', error)
+      throw error
+    }
+  }
+
+  // Upvote reply
+  async upvoteReply(reportId: string, commentId: string, replyId: string): Promise<void> {
+    try {
+      const response = await apiService.upvoteReply(reportId, commentId, replyId)
+      if (response.success) {
+        // Update local cache with new upvote data
+        const report = this.reports.find(r => r.id === reportId)
+        if (report) {
+          const comment = report.comments.find(c => c.id === commentId)
+          if (comment && comment.replies) {
+            const reply = comment.replies.find(r => r.id === replyId)
+            if (reply && response.data && response.data.reply) {
+              reply.upvoteCount = response.data.reply.upvoteCount
+              reply.upvotes = response.data.reply.upvotes
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Upvote reply error:', error)
       throw error
     }
   }

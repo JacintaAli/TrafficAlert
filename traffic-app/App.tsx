@@ -3,9 +3,42 @@
 import { useEffect } from "react"
 import { View } from "react-native"
 import { NavigationContainer } from "@react-navigation/native"
-import { createStackNavigator } from "@react-navigation/stack"
+import { createStackNavigator, StackNavigationProp } from "@react-navigation/stack"
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { Ionicons } from "@expo/vector-icons"
+
+// Define navigation types
+type RootStackParamList = {
+  Onboarding: undefined;
+  Login: undefined;
+  SignUp: undefined;
+  ForgotPassword: undefined;
+  OTPVerification: { email: string };
+  ResetPassword: { email: string; otp: string };
+  Main: undefined;
+  MainTabs: undefined;
+  EditProfile: undefined;
+  About: undefined;
+  HelpSupport: undefined;
+  ChangePassword: undefined;
+  ReportIncident: undefined;
+  AllReports: undefined;
+  Navigation: {
+    selectedRoute: {
+      id: string;
+      name: string;
+      duration: string;
+      distance: string;
+      description: string;
+      traffic: string;
+      incidents: number;
+      coordinates?: Array<{ latitude: number; longitude: number }>;
+      destination: { latitude: number; longitude: number };
+    };
+  };
+  ReportDetails: { reportId: string };
+  MyReports: undefined;
+};
 
 import OnboardingScreen from "./screens/OnboardingScreen"
 import LoginScreen from "./screens/LoginScreen"
@@ -39,7 +72,7 @@ import { ThemeProvider, useTheme } from "./contexts/ThemeContext"
 import NotificationBadge from "./components/NotificationBadge"
 import { useNotificationBadge } from "./hooks/useNotificationBadge"
 
-const Stack = createStackNavigator()
+const Stack = createStackNavigator<RootStackParamList>()
 const Tab = createBottomTabNavigator()
 
 function MainTabs() {

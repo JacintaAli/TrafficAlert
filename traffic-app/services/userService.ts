@@ -143,7 +143,7 @@ class UserService {
     const oldLevel = this.currentUser.level
     const newLevel = this.calculateLevel(this.currentUser.experience)
     
-    let result = { leveledUp: false, newLevel: undefined, badge: undefined }
+    let result: { leveledUp: boolean; newLevel?: number; badge?: Badge } = { leveledUp: false }
 
     if (newLevel > oldLevel) {
       this.currentUser.level = newLevel
@@ -291,10 +291,20 @@ class UserService {
   async updateProfile(updatedProfile: UserProfile): Promise<void> {
     try {
       console.log('📝 UserService: Updating profile...')
+      console.log('📝 UserService: Profile data received:', updatedProfile)
+
+      // Validate name locally first
+      const trimmedName = updatedProfile.username?.trim()
+      if (!trimmedName || trimmedName.length < 2) {
+        throw new Error('Name must be at least 2 characters long')
+      }
+      if (trimmedName.length > 50) {
+        throw new Error('Name cannot exceed 50 characters')
+      }
 
       // Prepare data for backend (only send fields that backend accepts)
       const backendUpdateData: any = {
-        name: updatedProfile.username, // Backend expects 'name' not 'username'
+        name: trimmedName, // Backend expects 'name' not 'username'
         // Note: Email updates are not supported by backend validation schema
         // phone: updatedProfile.phone, // Add if we have phone field
         // quickDestinations: updatedProfile.quickDestinations, // Add if we have this field
@@ -311,6 +321,10 @@ class UserService {
       // Update on backend first
       const response = await apiService.updateProfile(backendUpdateData)
       console.log('📝 UserService: Backend update response:', response)
+      console.log('📝 UserService: Response type:', typeof response)
+      console.log('📝 UserService: Response success:', response?.success)
+      console.log('📝 UserService: Response message:', response?.message)
+      console.log('📝 UserService: Response errors:', response?.errors)
 
       if (response.success) {
         console.log('📝 UserService: Backend update successful')
@@ -319,6 +333,7 @@ class UserService {
         const currentAvatar = this.currentUser?.avatar
         this.currentUser = {
           ...updatedProfile,
+          username: trimmedName, // Ensure we use the trimmed name
           // Preserve local avatar if it exists and wasn't changed in this update
           avatar: updatedProfile.avatar || currentAvatar
         }
@@ -326,11 +341,24 @@ class UserService {
 
         console.log('📝 UserService: Profile updated successfully, preserved avatar:', this.currentUser.avatar)
       } else {
+        // Handle backend validation errors more specifically
+        if (response.errors && Array.isArray(response.errors)) {
+          const errorMessages = response.errors.map((err: any) => err.message).join(', ')
+          throw new Error(errorMessages)
+        }
         throw new Error(response.message || 'Failed to update profile on backend')
       }
     } catch (error) {
       console.error('📝 UserService: Error updating user profile:', error)
-      throw error
+
+      // Provide more user-friendly error messages
+      if (error instanceof Error) {
+        if (error.message.includes('validation') || error.message.includes('Validation')) {
+          throw new Error('Please check that your name is between 2-50 characters long')
+        }
+        throw error
+      }
+      throw new Error('Failed to update profile. Please try again.')
     }
   }
 
