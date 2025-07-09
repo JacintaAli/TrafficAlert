@@ -27,7 +27,6 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [profileImage, setProfileImage] = useState<string | null>(null)
-  const [quickDestinations, setQuickDestinations] = useState<string[]>(["", "", ""])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -43,8 +42,6 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
         setUsername(profile.username)
         setEmail(profile.email)
         setProfileImage(profile.avatar || null)
-        // Load quick destinations from preferences or set defaults
-        setQuickDestinations(["Home", "Work", "School"])
       }
     } catch (error) {
       console.error("Failed to load user profile:", error)
@@ -78,11 +75,7 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
     }
   }
 
-  const updateQuickDestination = (index: number, value: string) => {
-    const newDestinations = [...quickDestinations]
-    newDestinations[index] = value
-    setQuickDestinations(newDestinations)
-  }
+
 
   const handleSave = async () => {
     if (!username.trim()) {
@@ -224,25 +217,7 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
           </View>
         </View>
 
-        {/* Quick Destinations */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Destinations</Text>
-          <Text style={styles.sectionSubtitle}>Set up your frequently visited places for faster navigation</Text>
-          
-          {quickDestinations.map((destination, index) => (
-            <View key={index} style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>
-                {index === 0 ? "Home" : index === 1 ? "Work" : "Other"}
-              </Text>
-              <TextInput
-                style={styles.input}
-                value={destination}
-                onChangeText={(value) => updateQuickDestination(index, value)}
-                placeholder={`Enter ${index === 0 ? "home" : index === 1 ? "work" : "other"} address`}
-              />
-            </View>
-          ))}
-        </View>
+
       </ScrollView>
     </SafeAreaView>
   )

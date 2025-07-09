@@ -244,24 +244,7 @@ export default function RouteSuggestionScreen({ navigation }: RouteSuggestionScr
           </View>
         )}
 
-        <View style={styles.quickDestinations}>
-          <Text style={styles.sectionTitle}>Quick Destinations</Text>
 
-          <TouchableOpacity style={styles.quickDestItem} onPress={() => setDestination("Home")}>
-            <Ionicons name="home" size={20} color="#666" />
-            <Text style={styles.quickDestText}>Home</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.quickDestItem} onPress={() => setDestination("Work")}>
-            <Ionicons name="briefcase" size={20} color="#666" />
-            <Text style={styles.quickDestText}>Work</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.quickDestItem} onPress={() => setDestination("Shopping Mall")}>
-            <Ionicons name="storefront" size={20} color="#666" />
-            <Text style={styles.quickDestText}>Shopping Mall</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   )
@@ -436,22 +419,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  quickDestinations: {
-    padding: 20,
-  },
-  quickDestItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  quickDestText: {
-    fontSize: 16,
-    color: "#333",
-    marginLeft: 12,
-  },
+
   enhancedInfo: {
     flexDirection: "row",
     marginTop: 8,

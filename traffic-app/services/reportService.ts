@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system'
 import { Alert } from 'react-native'
 import apiService from './apiService'
 import { userService } from './userService'
+import { notificationService } from './notificationService'
 
 export interface TrafficReport {
   id: string
@@ -134,6 +135,11 @@ class ReportService {
         // Add to local cache
         this.reports.unshift(report)
 
+        // Trigger push notification for new report
+        notificationService.simulateNewReportNotification(report).catch(error => {
+          console.error('Error triggering new report notification:', error)
+        })
+
         console.log('📝 ReportService: Report submitted successfully!', report.id)
         return report
       } else {
@@ -218,7 +224,9 @@ class ReportService {
           } : null,
           verified: backendReport.verification?.isVerified || false,
           upvotes: backendReport.interactions?.helpfulCount || 0,
-          downvotes: 0, // Not implemented in backend yet
+          downvotes: backendReport.interactions?.disputeCount || 0,
+          // Include full interactions data for vote checking
+          interactions: backendReport.interactions,
           comments: backendReport.interactions?.comments?.map((comment: any) => ({
             id: comment._id,
             userId: comment.user._id || comment.user,
@@ -242,8 +250,8 @@ class ReportService {
     }
   }
 
-  // Vote on a report (mark as helpful)
-  async voteOnReport(reportId: string, vote: 'up' | 'down'): Promise<void> {
+  // Vote on a report (mark as helpful or disputed)
+  async voteOnReport(reportId: string, vote: 'up' | 'down'): Promise<any> {
     try {
       if (vote === 'up') {
         const response = await apiService.markReportHelpful(reportId)
@@ -252,17 +260,60 @@ class ReportService {
           const report = this.reports.find(r => r.id === reportId)
           if (report) {
             report.upvotes = response.data.helpfulCount || report.upvotes + 1
+            // Update downvotes if they were affected by the mutual exclusivity
+            if (response.data.disputeCount !== undefined) {
+              report.downvotes = response.data.disputeCount
+            }
           }
         }
+        return response
       } else {
-        // Down vote not implemented in backend yet
-        const report = this.reports.find(r => r.id === reportId)
-        if (report) {
-          report.downvotes++
+        const response = await apiService.markReportDisputed(reportId)
+        if (response.success) {
+          // Update local cache
+          const report = this.reports.find(r => r.id === reportId)
+          if (report) {
+            report.downvotes = response.data.disputeCount || report.downvotes + 1
+            // Update upvotes if they were affected by the mutual exclusivity
+            if (response.data.helpfulCount !== undefined) {
+              report.upvotes = response.data.helpfulCount
+            }
+          }
         }
+        return response
       }
     } catch (error) {
       console.error('Vote on report error:', error)
+      throw error
+    }
+  }
+
+  // Remove vote on a report
+  async removeVoteOnReport(reportId: string, vote: 'up' | 'down'): Promise<any> {
+    try {
+      if (vote === 'up') {
+        const response = await apiService.removeReportHelpful(reportId)
+        if (response.success) {
+          // Update local cache
+          const report = this.reports.find(r => r.id === reportId)
+          if (report) {
+            report.upvotes = response.data.helpfulCount || Math.max(0, report.upvotes - 1)
+          }
+        }
+        return response
+      } else {
+        const response = await apiService.removeReportDispute(reportId)
+        if (response.success) {
+          // Update local cache
+          const report = this.reports.find(r => r.id === reportId)
+          if (report) {
+            report.downvotes = response.data.disputeCount || Math.max(0, report.downvotes - 1)
+          }
+        }
+        return response
+      }
+    } catch (error) {
+      console.error('Remove vote on report error:', error)
       throw error
     }
   }
@@ -315,6 +366,11 @@ class ReportService {
             timestamp: new Date(response.data.comment.createdAt)
           }
           report.comments.push(newComment)
+
+          // Trigger push notification for new comment
+          notificationService.simulateCommentNotification(report, newComment, newComment.username).catch(error => {
+            console.error('Error triggering comment notification:', error)
+          })
         }
       }
     } catch (error) {
@@ -532,6 +588,92 @@ class ReportService {
   private isExpired(report: TrafficReport): boolean {
     if (!report.expiresAt) return false
     return new Date() > report.expiresAt
+  }
+
+  // Get user's own reports
+  async getUserReports(page: number = 1, limit: number = 20, status?: string): Promise<TrafficReport[]> {
+    try {
+      const response = await apiService.getUserReports(page, limit, status)
+      if (response.success) {
+        // Convert backend reports to our TrafficReport format
+        const reports: TrafficReport[] = response.data.reports.map((backendReport: any) => ({
+          id: backendReport._id,
+          type: backendReport.type,
+          latitude: backendReport.latitude || backendReport.location.coordinates[1],
+          longitude: backendReport.longitude || backendReport.location.coordinates[0],
+          description: backendReport.description,
+          severity: backendReport.severity,
+          images: backendReport.images?.map((img: any) => img.url) || [],
+          timestamp: new Date(backendReport.createdAt),
+          userId: backendReport.user._id || backendReport.user,
+          verified: backendReport.verification?.isVerified || false,
+          upvotes: backendReport.interactions?.helpfulCount || 0,
+          downvotes: 0, // Not implemented in backend yet
+          comments: backendReport.interactions?.comments?.map((comment: any) => ({
+            id: comment._id,
+            userId: comment.user._id || comment.user,
+            username: comment.user.name || 'Unknown',
+            text: comment.text,
+            timestamp: new Date(comment.createdAt)
+          })) || [],
+          expiresAt: new Date(backendReport.expiresAt),
+          status: backendReport.status,
+          user: backendReport.user ? {
+            id: backendReport.user._id,
+            name: backendReport.user.name,
+            profilePicture: backendReport.user.profilePicture
+          } : null
+        }))
+
+        return reports
+      } else {
+        throw new Error(response.message || 'Failed to fetch user reports')
+      }
+    } catch (error) {
+      console.error('Get user reports error:', error)
+      throw error
+    }
+  }
+
+  // Update a report
+  async updateReport(reportId: string, updateData: { description?: string; severity?: string; status?: string }): Promise<void> {
+    try {
+      const response = await apiService.updateReport(reportId, updateData)
+      if (response.success) {
+        // Update local cache
+        const reportIndex = this.reports.findIndex(r => r.id === reportId)
+        if (reportIndex !== -1) {
+          const updatedReport = response.data.report
+          this.reports[reportIndex] = {
+            ...this.reports[reportIndex],
+            description: updatedReport.description,
+            severity: updatedReport.severity,
+            status: updatedReport.status
+          }
+        }
+      } else {
+        throw new Error(response.message || 'Failed to update report')
+      }
+    } catch (error) {
+      console.error('Update report error:', error)
+      throw error
+    }
+  }
+
+  // Delete a report
+  async deleteReport(reportId: string): Promise<void> {
+    try {
+      const response = await apiService.deleteReport(reportId)
+      if (response.success) {
+        // Remove from local cache
+        this.reports = this.reports.filter(r => r.id !== reportId)
+      } else {
+        throw new Error(response.message || 'Failed to delete report')
+      }
+    } catch (error) {
+      console.error('Delete report error:', error)
+      throw error
+    }
   }
 }
 

@@ -21,15 +21,27 @@ interface MyReportsScreenProps {
 interface UserReport {
   id: string
   type: string
-  location: string
+  location: {
+    latitude: number
+    longitude: number
+    address?: string
+  }
   date: string
-  status: 'Active' | 'Resolved' | 'Pending'
-  severity: 'Low' | 'Medium' | 'High'
+  status: 'active' | 'resolved' | 'expired' | 'flagged'
+  severity: 'low' | 'medium' | 'high'
   description: string
-  upvotes: number
-  downvotes: number
+  verifications: number
+  disputes: number
   comments: number
-  image?: string
+  images?: string[]
+  timestamp: Date
+  expiresAt?: Date
+  verified: boolean
+  user?: {
+    id: string
+    name: string
+    profilePicture?: string
+  }
 }
 
 export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
@@ -44,63 +56,39 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
 
   const loadUserReports = async () => {
     try {
-      // For demo purposes, let's create some sample user reports
-      // In a real app, you'd filter reports by user ID from the report service
-      const sampleUserReports: UserReport[] = [
-        {
-          id: "user-1",
-          type: "Traffic Jam",
-          location: "Wuse 2, Abuja",
-          date: "2024-01-15",
-          status: "Active",
-          severity: "Medium",
-          description: "Heavy traffic due to road construction on the main road",
-          upvotes: 12,
-          downvotes: 2,
-          comments: 5
-        },
-        {
-          id: "user-2",
-          type: "Accident",
-          location: "Garki Area 1",
-          date: "2024-01-12",
-          status: "Resolved",
-          severity: "High",
-          description: "Minor collision between two vehicles, cleared by authorities",
-          upvotes: 8,
-          downvotes: 1,
-          comments: 3
-        },
-        {
-          id: "user-3",
-          type: "Construction",
-          location: "Central Business District",
-          date: "2024-01-10",
-          status: "Active",
-          severity: "Low",
-          description: "Road maintenance work in progress, expect delays",
-          upvotes: 15,
-          downvotes: 0,
-          comments: 7
-        },
-        {
-          id: "user-4",
-          type: "Weather Alert",
-          location: "Maitama District",
-          date: "2024-01-08",
-          status: "Resolved",
-          severity: "Medium",
-          description: "Heavy rainfall causing flooding on major roads",
-          upvotes: 20,
-          downvotes: 3,
-          comments: 12
-        }
-      ]
+      console.log('📋 MyReportsScreen: Loading user reports from backend...')
+      const backendReports = await reportService.getUserReports(1, 50) // Get up to 50 reports
 
-      setUserReports(sampleUserReports)
+      // Convert backend reports to UserReport format
+      const convertedReports: UserReport[] = backendReports.map(report => ({
+        id: report.id,
+        type: report.type.charAt(0).toUpperCase() + report.type.slice(1), // Capitalize first letter
+        location: {
+          latitude: report.latitude,
+          longitude: report.longitude,
+          address: report.user?.name ? `${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}` : 'Unknown Location'
+        },
+        date: report.timestamp.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        status: report.status || 'active',
+        severity: report.severity || 'medium',
+        description: report.description,
+        verifications: report.upvotes || 0,
+        disputes: report.downvotes || 0,
+        comments: report.comments?.length || 0,
+        images: report.images || [],
+        timestamp: report.timestamp,
+        expiresAt: report.expiresAt,
+        verified: report.verified || false,
+        user: report.user
+      }))
+
+      console.log('📋 MyReportsScreen: Loaded', convertedReports.length, 'user reports')
+      setUserReports(convertedReports)
     } catch (error) {
-      console.error("Failed to load user reports:", error)
+      console.error("📋 MyReportsScreen: Failed to load user reports:", error)
       Alert.alert("Error", "Failed to load your reports. Please try again.")
+      // Set empty array on error
+      setUserReports([])
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -113,30 +101,43 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
   }
 
   const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'High': return '#f44336'
-      case 'Medium': return '#ff9800'
-      case 'Low': return '#4caf50'
+    switch (severity.toLowerCase()) {
+      case 'high': return '#f44336'
+      case 'medium': return '#ff9800'
+      case 'low': return '#4caf50'
       default: return '#9e9e9e'
     }
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active': return '#4CAF50'
-      case 'Resolved': return '#9E9E9E'
-      case 'Pending': return '#ff9800'
+    switch (status.toLowerCase()) {
+      case 'active': return '#4CAF50'
+      case 'resolved': return '#9E9E9E'
+      case 'expired': return '#757575'
+      case 'flagged': return '#f44336'
       default: return '#9e9e9e'
     }
   }
 
   const handleViewReport = (report: UserReport) => {
     // Navigate to ReportDetailsScreen with the report data
-    navigation.navigate('ReportDetails', { 
+    navigation.navigate('ReportDetails', {
       report: {
-        ...report,
+        id: report.id,
+        type: report.type,
+        description: report.description,
+        images: report.images || [],
+        comments: report.comments,
+        upvotes: report.verifications,
+        downvotes: report.disputes,
         time: report.date,
-        image: report.image || null
+        location: report.location,
+        severity: report.severity,
+        verified: report.verified,
+        user: report.user,
+        timestamp: report.timestamp,
+        expiresAt: report.expiresAt,
+        status: report.status
       }
     })
   }
@@ -150,6 +151,10 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
         {
           text: "Edit Description",
           onPress: () => editReportDescription(report)
+        },
+        {
+          text: "Change Severity",
+          onPress: () => changeReportSeverity(report)
         },
         {
           text: "Change Status",
@@ -167,16 +172,26 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
         { text: "Cancel", style: "cancel" },
         {
           text: "Save",
-          onPress: (newDescription) => {
+          onPress: async (newDescription) => {
             if (newDescription && newDescription.trim()) {
-              setUserReports(prev =>
-                prev.map(r =>
-                  r.id === report.id
-                    ? { ...r, description: newDescription.trim() }
-                    : r
+              try {
+                await reportService.updateReport(report.id, {
+                  description: newDescription.trim()
+                })
+
+                // Update local state
+                setUserReports(prev =>
+                  prev.map(r =>
+                    r.id === report.id
+                      ? { ...r, description: newDescription.trim() }
+                      : r
+                  )
                 )
-              )
-              Alert.alert("Success", "Report description updated successfully")
+                Alert.alert("Success", "Report description updated successfully")
+              } catch (error) {
+                console.error("Failed to update report description:", error)
+                Alert.alert("Error", "Failed to update report description. Please try again.")
+              }
             }
           }
         }
@@ -186,27 +201,84 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
     )
   }
 
+  const changeReportSeverity = (report: UserReport) => {
+    const severityOptions = [
+      { label: 'Low', value: 'low' },
+      { label: 'Medium', value: 'medium' },
+      { label: 'High', value: 'high' }
+    ]
+    const currentSeverity = severityOptions.find(s => s.value === report.severity)
+    const otherSeverities = severityOptions.filter(s => s.value !== report.severity)
+
+    Alert.alert(
+      "Change Severity",
+      `Current severity: ${currentSeverity?.label || report.severity}`,
+      [
+        { text: "Cancel", style: "cancel" },
+        ...otherSeverities.map(severity => ({
+          text: severity.label,
+          onPress: async () => {
+            try {
+              await reportService.updateReport(report.id, {
+                severity: severity.value
+              })
+
+              // Update local state
+              setUserReports(prev =>
+                prev.map(r =>
+                  r.id === report.id
+                    ? { ...r, severity: severity.value as 'low' | 'medium' | 'high' }
+                    : r
+                )
+              )
+              Alert.alert("Success", `Report severity changed to ${severity.label}`)
+            } catch (error) {
+              console.error("Failed to update report severity:", error)
+              Alert.alert("Error", "Failed to update report severity. Please try again.")
+            }
+          }
+        }))
+      ]
+    )
+  }
+
   const changeReportStatus = (report: UserReport) => {
-    const statusOptions = ['Active', 'Resolved', 'Pending']
-    const currentIndex = statusOptions.indexOf(report.status)
-    const otherStatuses = statusOptions.filter(s => s !== report.status)
+    // Note: Only admins can change status in the backend, so this is mainly for display
+    // Regular users can only edit description and severity
+    const statusOptions = [
+      { label: 'Active', value: 'active' },
+      { label: 'Resolved', value: 'resolved' }
+    ]
+    const currentStatus = statusOptions.find(s => s.value === report.status)
+    const otherStatuses = statusOptions.filter(s => s.value !== report.status)
 
     Alert.alert(
       "Change Status",
-      `Current status: ${report.status}`,
+      `Current status: ${currentStatus?.label || report.status}\n\nNote: Status changes may require admin approval.`,
       [
         { text: "Cancel", style: "cancel" },
         ...otherStatuses.map(status => ({
-          text: status,
-          onPress: () => {
-            setUserReports(prev =>
-              prev.map(r =>
-                r.id === report.id
-                  ? { ...r, status: status as 'Active' | 'Resolved' | 'Pending' }
-                  : r
+          text: status.label,
+          onPress: async () => {
+            try {
+              // Try to update status (may fail if user is not admin)
+              await reportService.updateReport(report.id, {
+                status: status.value
+              })
+
+              // Update local state
+              setUserReports(prev =>
+                prev.map(r =>
+                  r.id === report.id
+                    ? { ...r, status: status.value as 'active' | 'resolved' | 'expired' | 'flagged' }
+                    : r
+                )
               )
-            )
-            Alert.alert("Success", `Report status changed to ${status}`)
+              Alert.alert("Success", `Report status changed to ${status.label}`)
+            } catch (error) {
+              console.error("Failed to update report status:", error)
+              Alert.alert("Error", "Failed to update report status. You may not have permission to change this.")
+            }
           }
         }))
       ]
@@ -214,9 +286,11 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
   }
 
   const handleDeleteReport = (report: UserReport) => {
+    const locationText = report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`
+
     Alert.alert(
       "Delete Report",
-      `Are you sure you want to delete this ${report.type} report?\n\nLocation: ${report.location}\nDate: ${report.date}\n\nThis action cannot be undone.`,
+      `Are you sure you want to delete this ${report.type} report?\n\nLocation: ${locationText}\nDate: ${report.date}\n\nThis action cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -224,12 +298,11 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
           style: "destructive",
           onPress: async () => {
             try {
-              // In a real app, you would call the API to delete the report
-              // await reportService.deleteReport(report.id)
-
+              await reportService.deleteReport(report.id)
               setUserReports(prev => prev.filter(r => r.id !== report.id))
               Alert.alert("Success", "Report deleted successfully")
             } catch (error) {
+              console.error("Failed to delete report:", error)
               Alert.alert("Error", "Failed to delete report. Please try again.")
             }
           }
@@ -244,7 +317,7 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
         <View style={styles.reportTitleSection}>
           <Text style={[styles.reportType, { color: theme.colors.text }]}>{item.type}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status}</Text>
+            <Text style={styles.statusText}>{item.status.charAt(0).toUpperCase() + item.status.slice(1)}</Text>
           </View>
         </View>
         <View style={styles.reportActions}>
@@ -276,7 +349,9 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
       <View style={styles.reportMeta}>
         <View style={styles.metaItem}>
           <Ionicons name="location-outline" size={16} color={theme.colors.textSecondary} />
-          <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>{item.location}</Text>
+          <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            {item.location.address || `${item.location.latitude.toFixed(4)}, ${item.location.longitude.toFixed(4)}`}
+          </Text>
         </View>
         <View style={styles.metaItem}>
           <Ionicons name="calendar-outline" size={16} color={theme.colors.textSecondary} />
@@ -286,19 +361,19 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
 
       <View style={styles.reportStats}>
         <View style={styles.statItem}>
-          <Ionicons name="arrow-up" size={16} color={theme.colors.success} />
-          <Text style={[styles.statText, { color: theme.colors.textSecondary }]}>{item.upvotes}</Text>
+          <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
+          <Text style={[styles.statText, { color: theme.colors.textSecondary }]}>{item.verifications}</Text>
         </View>
         <View style={styles.statItem}>
-          <Ionicons name="arrow-down" size={16} color={theme.colors.error} />
-          <Text style={[styles.statText, { color: theme.colors.textSecondary }]}>{item.downvotes}</Text>
+          <Ionicons name="close-circle" size={16} color={theme.colors.error} />
+          <Text style={[styles.statText, { color: theme.colors.textSecondary }]}>{item.disputes}</Text>
         </View>
         <View style={styles.statItem}>
           <Ionicons name="chatbubble-outline" size={16} color={theme.colors.textSecondary} />
           <Text style={[styles.statText, { color: theme.colors.textSecondary }]}>{item.comments}</Text>
         </View>
         <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(item.severity) }]}>
-          <Text style={styles.severityText}>{item.severity}</Text>
+          <Text style={styles.severityText}>{item.severity.charAt(0).toUpperCase() + item.severity.slice(1)}</Text>
         </View>
       </View>
     </View>
@@ -313,7 +388,7 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
       </Text>
       <TouchableOpacity 
         style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate('CreateReport')}
+        onPress={() => navigation.navigate('ReportIncident')}
       >
         <Ionicons name="add" size={20} color="#fff" />
         <Text style={styles.createButtonText}>Create Report</Text>
@@ -330,7 +405,7 @@ export default function MyReportsScreen({ navigation }: MyReportsScreenProps) {
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>My Reports</Text>
         <TouchableOpacity 
           style={styles.addButton}
-          onPress={() => navigation.navigate('CreateReport')}
+          onPress={() => navigation.navigate('ReportIncident')}
         >
           <Ionicons name="add" size={24} color={theme.colors.primary} />
         </TouchableOpacity>

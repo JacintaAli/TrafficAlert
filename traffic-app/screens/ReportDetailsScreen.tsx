@@ -27,22 +27,6 @@ interface ReportDetailsScreenProps {
   route: any
 }
 
-interface Reply {
-  id: string
-  user: {
-    _id: string
-    name: string
-    profilePicture?: string
-  }
-  text: string
-  createdAt: string
-  upvoteCount: number
-  upvotes: Array<{
-    user: string
-    votedAt: string
-  }>
-}
-
 interface Comment {
   id: string
   user: {
@@ -57,7 +41,6 @@ interface Comment {
     user: string
     votedAt: string
   }>
-  replies?: Reply[]
 }
 
 // Dummy comments data
@@ -98,46 +81,161 @@ const dummyComments = [
 
 export default function ReportDetailsScreen({ navigation, route }: ReportDetailsScreenProps) {
   const { theme } = useTheme()
-  const { report } = route.params
+  const { report, reportId } = route.params
+
+  // State for fetched report data
+  const [reportData, setReportData] = useState<any>(null)
+  const [loadingReport, setLoadingReport] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(true)
   const [newComment, setNewComment] = useState("")
-  const [replyingTo, setReplyingTo] = useState<string | null>(null)
-  const [newReply, setNewReply] = useState("")
-  const [isUpvoted, setIsUpvoted] = useState(false)
-  const [isDownvoted, setIsDownvoted] = useState(false)
-  const [upvotes, setUpvotes] = useState(report.upvotes)
-  const [downvotes, setDownvotes] = useState(report.downvotes)
+  const [isVerified, setIsVerified] = useState(false)
+  const [isDisputed, setIsDisputed] = useState(false)
+  const [verifications, setVerifications] = useState(0)
+  const [disputes, setDisputes] = useState(0)
   const [isVoting, setIsVoting] = useState(false)
   const commentInputRef = useRef<TextInput>(null)
 
-  // Alternative routes data (similar to AlertDetailsScreen)
-  const [alternativeRoutes] = useState([
-    {
-      id: "1",
-      name: "Via Main Street",
-      duration: "+5 min",
-      distance: "+2.1 km",
-      description: "Avoid incident area completely",
-      savings: "Saves 15 min in current traffic"
-    },
-    {
-      id: "2",
-      name: "Via Highway Bypass",
-      duration: "+8 min",
-      distance: "+4.3 km",
-      description: "Longer but more reliable",
-      savings: "Consistent travel time"
-    }
-  ])
+
 
   // Load comments when component mounts
+  // Initialize report data and load comments
   useEffect(() => {
-    loadComments()
-  }, [report.id])
+    initializeReport()
+  }, [])
+
+  useEffect(() => {
+    if (reportData) {
+      // Initialize vote counts when report data is available
+      setVerifications(reportData.upvotes || reportData.upvoteCount || 0)
+      setDisputes(reportData.downvotes || reportData.downvoteCount || 0)
+
+      // Initialize user's vote state based on backend data
+      initializeUserVoteState()
+
+      loadComments()
+    }
+  }, [reportData])
+
+  const initializeUserVoteState = () => {
+    const currentUser = userService.getCurrentUser()
+    if (!currentUser || !reportData) {
+      setIsVerified(false)
+      setIsDisputed(false)
+      return
+    }
+
+    // Check if user has voted on this report
+    // For helpful votes, check the interactions.helpful array
+    const hasVerified = reportData.interactions?.helpful?.some((vote: any) =>
+      vote.user === currentUser.id || vote.user._id === currentUser.id
+    ) || false
+
+    // For dispute votes, check the interactions.disputes array
+    const hasDisputed = reportData.interactions?.disputes?.some((vote: any) =>
+      vote.user === currentUser.id || vote.user._id === currentUser.id
+    ) || false
+
+    setIsVerified(hasVerified)
+    setIsDisputed(hasDisputed)
+  }
+
+  const initializeReport = async () => {
+    if (report) {
+      // If we have a complete report object, use it directly
+      setReportData(report)
+    } else if (reportId) {
+      // If we only have reportId, fetch the report using getAllReports and find by ID
+      // This ensures we get the EXACT same format as AllReportsScreen
+      setLoadingReport(true)
+      try {
+        console.log('🔍 Fetching report by ID using getAllReports:', reportId)
+        const allReports = await reportService.getAllReports()
+        const foundReport = allReports.find(report => report.id === reportId)
+
+        if (foundReport) {
+          console.log('✅ Found report in getAllReports:', foundReport)
+          setReportData(foundReport)
+        } else {
+          console.log('❌ Report not found in getAllReports, trying getReportById...')
+          // Fallback to getReportById if not found in getAllReports
+          const fetchedReport = await reportService.getReportById(reportId)
+          console.log('✅ Fetched report via getReportById:', fetchedReport)
+
+          // Transform backend report to match EXACT same format as getAllReports()
+          const transformedReport = {
+            id: fetchedReport._id,
+            type: fetchedReport.type,
+            latitude: fetchedReport.latitude || fetchedReport.location?.coordinates?.[1],
+            longitude: fetchedReport.longitude || fetchedReport.location?.coordinates?.[0],
+            description: fetchedReport.description,
+            severity: fetchedReport.severity,
+            images: fetchedReport.images?.map((img: any) => img.url || img) || [],
+            timestamp: new Date(fetchedReport.createdAt),
+            userId: fetchedReport.user?._id || fetchedReport.user,
+            // Preserve full user data for display (same as getAllReports)
+            user: typeof fetchedReport.user === 'object' ? {
+              _id: fetchedReport.user._id,
+              name: fetchedReport.user.name,
+              profilePicture: fetchedReport.user.profilePicture
+            } : null,
+            verified: fetchedReport.verification?.isVerified || false,
+            upvotes: fetchedReport.interactions?.helpfulCount || 0,
+            downvotes: fetchedReport.interactions?.disputeCount || 0,
+            // Include full interactions data for vote checking
+            interactions: fetchedReport.interactions,
+            comments: fetchedReport.interactions?.comments?.map((comment: any) => ({
+              id: comment._id,
+              userId: comment.user._id || comment.user,
+              username: comment.user.name || 'Unknown',
+              text: comment.text,
+              timestamp: new Date(comment.createdAt)
+            })) || [],
+            expiresAt: new Date(fetchedReport.expiresAt)
+          }
+
+          setReportData(transformedReport)
+        }
+      } catch (error) {
+        console.error('❌ Error fetching report:', error)
+        // Create fallback report data
+        setReportData({
+          id: reportId,
+          type: 'Unknown Report',
+          description: 'Unable to load report details. Please try again.',
+          upvotes: 0,
+          downvotes: 0,
+          comments: 0,
+          time: 'Unknown',
+          location: { latitude: 0, longitude: 0, address: 'Unknown' },
+          severity: 'medium',
+          image: null,
+          images: []
+        })
+      } finally {
+        setLoadingReport(false)
+      }
+    } else {
+      // No report or reportId provided
+      console.error('❌ No report or reportId provided to ReportDetailsScreen')
+      setReportData({
+        id: 'unknown',
+        type: 'Error',
+        description: 'No report data available',
+        upvotes: 0,
+        downvotes: 0,
+        comments: 0,
+        time: 'Unknown',
+        location: { latitude: 0, longitude: 0, address: 'Unknown' },
+        severity: 'medium',
+        image: null,
+        images: []
+      })
+    }
+  }
 
   const loadComments = async () => {
-    if (!report.id) {
+    if (!reportData.id) {
       // If no report ID, fall back to dummy comments for demo
       setComments(dummyComments.map(comment => ({
         id: comment.id,
@@ -157,24 +255,16 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
 
     try {
       setLoadingComments(true)
-      const reportData = await reportService.getReportById(report.id)
-      if (reportData && reportData.interactions && reportData.interactions.comments) {
+      const fetchedReportData = await reportService.getReportById(reportData.id)
+      if (fetchedReportData && fetchedReportData.interactions && fetchedReportData.interactions.comments) {
         // Transform backend comments to match frontend interface
-        const transformedComments = reportData.interactions.comments.map((c: any) => ({
+        const transformedComments = fetchedReportData.interactions.comments.map((c: any) => ({
           id: c._id, // Convert _id to id
           user: c.user,
           text: c.text,
           createdAt: c.createdAt,
           upvoteCount: c.upvoteCount || 0,
-          upvotes: c.upvotes || [],
-          replies: c.replies ? c.replies.map((r: any) => ({
-            id: r._id,
-            user: r.user,
-            text: r.text,
-            createdAt: r.createdAt,
-            upvoteCount: r.upvoteCount || 0,
-            upvotes: r.upvotes || []
-          })) : []
+          upvotes: c.upvotes || []
         }))
         console.log('📝 Loaded comments:', transformedComments.map((c: any) => ({ id: c.id, text: c.text })))
         setComments(transformedComments)
@@ -203,8 +293,8 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
   }
 
   const getSeverityColor = () => {
-    if (!report.severity) return '#666'
-    switch (report.severity) {
+    if (!reportData.severity) return '#666'
+    switch (reportData.severity) {
       case 'low': return '#4CAF50'
       case 'medium': return '#ff9800'
       case 'high': return '#f44336'
@@ -214,7 +304,7 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
   }
 
   const getReportIcon = () => {
-    const type = report.type?.toLowerCase() || ''
+    const type = reportData.type?.toLowerCase() || ''
     if (type.includes('crash') || type.includes('accident')) return 'warning'
     if (type.includes('traffic')) return 'car'
     if (type.includes('construction') || type.includes('roadwork')) return 'construct'
@@ -222,58 +312,97 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
     return 'information-circle'
   }
 
-  const handleUpvote = async () => {
+  const handleVerify = async () => {
     if (isVoting) return
+
+    const currentUser = userService.getCurrentUser()
+    if (!currentUser) {
+      Alert.alert("Error", "Please log in to verify reports")
+      return
+    }
 
     setIsVoting(true)
     try {
-      if (isUpvoted) {
-        // Remove upvote (not implemented in backend yet, so just update locally)
-        setUpvotes(upvotes - 1)
-        setIsUpvoted(false)
-      } else {
-        // Add upvote - use the backend helpful functionality
-        if (report.id) {
-          await reportService.voteOnReport(report.id, 'up')
+      if (isVerified) {
+        // Remove verification
+        if (reportData.id) {
+          const response = await reportService.removeVoteOnReport(reportData.id, 'up')
+          if (response.success) {
+            setVerifications(response.data.helpfulCount || Math.max(0, verifications - 1))
+            setIsVerified(false)
+          }
         }
-        setUpvotes(upvotes + 1)
-        setIsUpvoted(true)
-        if (isDownvoted) {
-          setDownvotes(downvotes - 1)
-          setIsDownvoted(false)
+      } else {
+        // Add verification - this will automatically remove dispute vote if exists
+        if (reportData.id) {
+          const response = await reportService.voteOnReport(reportData.id, 'up')
+          if (response.success) {
+            setVerifications(response.data.helpfulCount || verifications + 1)
+            setIsVerified(true)
+
+            // Update dispute count if it was affected by mutual exclusivity
+            if (response.data.disputeCount !== undefined) {
+              setDisputes(response.data.disputeCount)
+              setIsDisputed(false)
+            } else if (isDisputed) {
+              // Fallback: if backend doesn't return dispute count, manually update
+              setDisputes(Math.max(0, disputes - 1))
+              setIsDisputed(false)
+            }
+          }
         }
       }
     } catch (error) {
-      console.error('Error voting on report:', error)
-      Alert.alert("Error", "Failed to vote on report. Please try again.")
+      console.error('Error verifying report:', error)
+      Alert.alert("Error", "Failed to verify report. Please try again.")
     } finally {
       setIsVoting(false)
     }
   }
 
-  const handleDownvote = async () => {
+  const handleDispute = async () => {
     if (isVoting) return
+
+    const currentUser = userService.getCurrentUser()
+    if (!currentUser) {
+      Alert.alert("Error", "Please log in to dispute reports")
+      return
+    }
 
     setIsVoting(true)
     try {
-      if (isDownvoted) {
-        setDownvotes(downvotes - 1)
-        setIsDownvoted(false)
-      } else {
-        // Downvote functionality (not implemented in backend, so just update locally)
-        if (report.id) {
-          await reportService.voteOnReport(report.id, 'down')
+      if (isDisputed) {
+        // Remove dispute
+        if (reportData.id) {
+          const response = await reportService.removeVoteOnReport(reportData.id, 'down')
+          if (response.success) {
+            setDisputes(response.data.disputeCount || Math.max(0, disputes - 1))
+            setIsDisputed(false)
+          }
         }
-        setDownvotes(downvotes + 1)
-        setIsDownvoted(true)
-        if (isUpvoted) {
-          setUpvotes(upvotes - 1)
-          setIsUpvoted(false)
+      } else {
+        // Add dispute - this will automatically remove helpful vote if exists
+        if (reportData.id) {
+          const response = await reportService.voteOnReport(reportData.id, 'down')
+          if (response.success) {
+            setDisputes(response.data.disputeCount || disputes + 1)
+            setIsDisputed(true)
+
+            // Update helpful count if it was affected by mutual exclusivity
+            if (response.data.helpfulCount !== undefined) {
+              setVerifications(response.data.helpfulCount)
+              setIsVerified(false)
+            } else if (isVerified) {
+              // Fallback: if backend doesn't return helpful count, manually update
+              setVerifications(Math.max(0, verifications - 1))
+              setIsVerified(false)
+            }
+          }
         }
       }
     } catch (error) {
-      console.error('Error voting on report:', error)
-      Alert.alert("Error", "Failed to vote on report. Please try again.")
+      console.error('Error disputing report:', error)
+      Alert.alert("Error", "Failed to dispute report. Please try again.")
     } finally {
       setIsVoting(false)
     }
@@ -294,9 +423,9 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
       }
 
       // Try to add comment via backend if report has an ID
-      if (report.id) {
-        console.log('💬 Adding comment to report:', report.id, 'Comment:', newComment.trim())
-        await reportService.addComment(report.id, {
+      if (reportData.id) {
+        console.log('💬 Adding comment to report:', reportData.id, 'Comment:', newComment.trim())
+        await reportService.addComment(reportData.id, {
           text: newComment.trim(),
           userId: currentUser.id,
           username: currentUser.username
@@ -331,51 +460,51 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
     }
   }
 
-  const handleCommentUpvote = async (commentId: string) => {
+  const handleCommentVerify = async (commentId: string) => {
     try {
       // Get current user info
       const currentUser = userService.getCurrentUser()
       if (!currentUser) {
-        Alert.alert("Error", "Please log in to upvote comments")
+        Alert.alert("Error", "Please log in to verify comments")
         return
       }
 
-      if (!report.id) {
-        Alert.alert("Error", "Cannot upvote comments on demo reports")
+      if (!reportData.id) {
+        Alert.alert("Error", "Cannot verify comments on demo reports")
         return
       }
 
       // Debug logging
-      console.log('🔍 Upvoting comment:', {
-        reportId: report.id,
+      console.log('🔍 Verifying comment:', {
+        reportId: reportData.id,
         commentId: commentId,
         allComments: comments.map(c => ({ id: c.id, text: c.text }))
       })
 
-      // Check if user has already upvoted this comment
+      // Check if user has already verified this comment
       const comment = comments.find(c => c.id === commentId)
       if (!comment) {
         console.log('❌ Comment not found in local state:', commentId)
         return
       }
 
-      const hasUpvoted = comment.upvotes && comment.upvotes.some(upvote => upvote.user === currentUser.id)
+      const hasVerified = comment.upvotes && comment.upvotes.some(upvote => upvote.user === currentUser.id)
 
-      if (hasUpvoted) {
-        // Remove upvote
-        await reportService.removeCommentUpvote(report.id, commentId)
-        Alert.alert("Success", "Upvote removed!")
+      if (hasVerified) {
+        // Remove verification
+        await reportService.removeCommentUpvote(reportData.id, commentId)
+        Alert.alert("Success", "Verification removed!")
       } else {
-        // Add upvote
-        await reportService.upvoteComment(report.id, commentId)
-        Alert.alert("Success", "Comment upvoted!")
+        // Add verification
+        await reportService.upvoteComment(reportData.id, commentId)
+        Alert.alert("Success", "Comment verified!")
       }
 
-      // Reload comments to get updated upvote counts
+      // Reload comments to get updated verification counts
       await loadComments()
     } catch (error) {
-      console.error('Error handling comment upvote:', error)
-      Alert.alert("Error", "Failed to update upvote. Please try again.")
+      console.error('Error handling comment verification:', error)
+      Alert.alert("Error", "Failed to update verification. Please try again.")
     }
   }
 
@@ -388,7 +517,7 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
         return
       }
 
-      if (!report.id) {
+      if (!reportData.id) {
         Alert.alert("Error", "Cannot delete comments on demo reports")
         return
       }
@@ -420,7 +549,7 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
             style: "destructive",
             onPress: async () => {
               try {
-                await reportService.deleteComment(report.id, commentId)
+                await reportService.deleteComment(reportData.id, commentId)
                 Alert.alert("Success", "Comment deleted successfully!")
                 // Reload comments to get updated list
                 await loadComments()
@@ -438,128 +567,12 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
     }
   }
 
-  const handleReply = (commentId: string) => {
-    setReplyingTo(commentId)
-    setNewReply("")
-  }
 
-  const handleCancelReply = () => {
-    setReplyingTo(null)
-    setNewReply("")
-  }
-
-  const handleAddReply = async (commentId: string) => {
-    if (!newReply.trim()) {
-      Alert.alert("Error", "Please enter a reply")
-      return
-    }
-
-    try {
-      // Get current user info
-      const currentUser = userService.getCurrentUser()
-      if (!currentUser) {
-        Alert.alert("Error", "Please log in to add replies")
-        return
-      }
-
-      if (!report.id) {
-        Alert.alert("Error", "Cannot add replies on demo reports")
-        return
-      }
-
-      await reportService.addReply(report.id, commentId, {
-        text: newReply.trim(),
-        userId: currentUser.id,
-        username: currentUser.username
-      })
-
-      setNewReply("")
-      setReplyingTo(null)
-      Alert.alert("Success", "Reply added successfully!")
-
-      // Reload comments to get updated list with new reply
-      await loadComments()
-    } catch (error) {
-      console.error('Error adding reply:', error)
-      Alert.alert("Error", "Failed to add reply. Please try again.")
-    }
-  }
-
-  const handleDeleteReply = async (commentId: string, replyId: string) => {
-    try {
-      // Get current user info
-      const currentUser = userService.getCurrentUser()
-      if (!currentUser) {
-        Alert.alert("Error", "Please log in to delete replies")
-        return
-      }
-
-      if (!report.id) {
-        Alert.alert("Error", "Cannot delete replies on demo reports")
-        return
-      }
-
-      // Show confirmation dialog
-      Alert.alert(
-        "Delete Reply",
-        "Are you sure you want to delete this reply?",
-        [
-          {
-            text: "Cancel",
-            style: "cancel"
-          },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await reportService.deleteReply(report.id, commentId, replyId)
-                Alert.alert("Success", "Reply deleted successfully!")
-                // Reload comments to get updated list
-                await loadComments()
-              } catch (error) {
-                console.error('Error deleting reply:', error)
-                Alert.alert("Error", "Failed to delete reply. Please try again.")
-              }
-            }
-          }
-        ]
-      )
-    } catch (error) {
-      console.error('Error handling reply deletion:', error)
-      Alert.alert("Error", "Failed to delete reply. Please try again.")
-    }
-  }
-
-  const handleReplyUpvote = async (commentId: string, replyId: string) => {
-    try {
-      // Get current user info
-      const currentUser = userService.getCurrentUser()
-      if (!currentUser) {
-        Alert.alert("Error", "Please log in to upvote replies")
-        return
-      }
-
-      if (!report.id) {
-        Alert.alert("Error", "Cannot upvote replies on demo reports")
-        return
-      }
-
-      await reportService.upvoteReply(report.id, commentId, replyId)
-      Alert.alert("Success", "Reply upvoted!")
-
-      // Reload comments to get updated upvote counts
-      await loadComments()
-    } catch (error) {
-      console.error('Error upvoting reply:', error)
-      Alert.alert("Error", "Failed to upvote reply. Please try again.")
-    }
-  }
 
   const handleShare = async () => {
     try {
       const shareContent = {
-        message: `Traffic Alert: ${report.type}\n\n${report.description}\n\nShared via TrafficAlert app`,
+        message: `Traffic Alert: ${reportData.type}\n\n${reportData.description}\n\nShared via TrafficAlert app`,
         title: "Traffic Alert",
       }
 
@@ -570,17 +583,17 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
   }
 
   const handleGetDirections = () => {
-    if (report.location) {
+    if (reportData.location) {
       navigation.navigate('Navigation', {
         selectedRoute: {
           id: 'report-route',
           name: 'Route to Report Location',
-          duration: report.distance || '10 min',
-          distance: report.distance || '5.2 km',
-          description: `Navigate to ${report.location.address || 'report location'}`,
+          duration: reportData.distance || '10 min',
+          distance: reportData.distance || '5.2 km',
+          description: `Navigate to ${reportData.location.address || 'report location'}`,
           traffic: 'Moderate traffic',
           incidents: 1,
-          destination: report.location
+          destination: reportData.location
         }
       })
     } else {
@@ -589,9 +602,9 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
   }
 
   const handleAvoidArea = () => {
-    if (report.location) {
+    if (reportData.location) {
       navigation.navigate('Routes', {
-        avoidLocation: report.location,
+        avoidLocation: reportData.location,
         avoidRadius: 2000 // 2km radius
       })
     } else {
@@ -614,73 +627,12 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
     }
   }
 
-  const renderReply = (reply: Reply, commentId: string) => {
-    const currentUser = userService.getCurrentUser()
-    const hasUpvoted = currentUser && reply.upvotes && reply.upvotes.some(upvote => upvote.user === currentUser.id)
-    const isOwner = currentUser && reply.user._id === currentUser.id
 
-    return (
-      <View key={reply.id} style={[styles.replyCard, { backgroundColor: theme.colors.surface }]}>
-        <View style={styles.commentHeader}>
-          <UserAvatar
-            size={UserAvatarSizes.small}
-            backgroundColor={theme.colors.background}
-            iconColor={theme.colors.textSecondary}
-            userAvatar={reply.user.profilePicture}
-            userName={reply.user.name}
-          />
-          <View style={styles.commentUserInfo}>
-            <Text style={[styles.commentUser, { color: theme.colors.text }]}>
-              {reply.user.name}
-            </Text>
-            <Text style={[styles.commentTime, { color: theme.colors.textSecondary }]}>
-              {formatTimeAgo(reply.createdAt)}
-            </Text>
-          </View>
-          <View style={styles.commentActions}>
-            <TouchableOpacity
-              style={[
-                styles.commentUpvote,
-                {
-                  backgroundColor: hasUpvoted
-                    ? theme.colors.success + '40'
-                    : theme.colors.success + '20'
-                }
-              ]}
-              onPress={() => handleReplyUpvote(commentId, reply.id)}
-            >
-              <Ionicons
-                name={hasUpvoted ? "thumbs-up" : "thumbs-up-outline"}
-                size={14}
-                color={theme.colors.success}
-              />
-              <Text style={[styles.commentUpvoteText, { color: theme.colors.success }]}>
-                {reply.upvoteCount || 0}
-              </Text>
-            </TouchableOpacity>
-            {isOwner && (
-              <TouchableOpacity
-                style={[styles.commentDelete, { backgroundColor: theme.colors.error + '20' }]}
-                onPress={() => handleDeleteReply(commentId, reply.id)}
-              >
-                <Ionicons
-                  name="trash-outline"
-                  size={14}
-                  color={theme.colors.error}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-        <Text style={[styles.replyText, { color: theme.colors.text }]}>{reply.text}</Text>
-      </View>
-    )
-  }
 
   const renderComment = (comment: Comment) => {
-    // Check if current user has upvoted this comment
+    // Check if current user has verified this comment
     const currentUser = userService.getCurrentUser()
-    const hasUpvoted = currentUser && comment.upvotes && comment.upvotes.some(upvote => upvote.user === currentUser.id)
+    const hasVerified = currentUser && comment.upvotes && comment.upvotes.some(upvote => upvote.user === currentUser.id)
     const isOwner = currentUser && comment.user._id === currentUser.id
 
     return (
@@ -706,15 +658,15 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
               style={[
                 styles.commentUpvote,
                 {
-                  backgroundColor: hasUpvoted
+                  backgroundColor: hasVerified
                     ? theme.colors.success + '40'
                     : theme.colors.success + '20'
                 }
               ]}
-              onPress={() => handleCommentUpvote(comment.id)}
+              onPress={() => handleCommentVerify(comment.id)}
             >
               <Ionicons
-                name={hasUpvoted ? "thumbs-up" : "thumbs-up-outline"}
+                name={hasVerified ? "checkmark-circle" : "checkmark-circle-outline"}
                 size={16}
                 color={theme.colors.success}
               />
@@ -737,54 +689,25 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
           </View>
         </View>
         <Text style={[styles.commentText, { color: theme.colors.text }]}>{comment.text}</Text>
-
-        {/* Reply button */}
-        <TouchableOpacity
-          style={styles.replyButton}
-          onPress={() => handleReply(comment.id)}
-        >
-          <Ionicons name="chatbubble-outline" size={14} color={theme.colors.textSecondary} />
-          <Text style={[styles.replyButtonText, { color: theme.colors.textSecondary }]}>
-            Reply {comment.replies && comment.replies.length > 0 ? `(${comment.replies.length})` : ''}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Replies */}
-        {comment.replies && comment.replies.length > 0 && (
-          <View style={styles.repliesContainer}>
-            {comment.replies.map(reply => renderReply(reply, comment.id))}
-          </View>
-        )}
-
-        {/* Reply input (shown when replying to this comment) */}
-        {replyingTo === comment.id && (
-          <View style={[styles.replyInputContainer, { borderTopColor: theme.colors.border }]}>
-            <TextInput
-              style={[styles.replyInput, { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border }]}
-              placeholder="Write a reply..."
-              placeholderTextColor={theme.colors.textSecondary}
-              value={newReply}
-              onChangeText={setNewReply}
-              multiline
-              maxLength={200}
-            />
-            <View style={styles.replyInputActions}>
-              <TouchableOpacity
-                style={[styles.cancelReplyButton, { backgroundColor: theme.colors.error + '20' }]}
-                onPress={handleCancelReply}
-              >
-                <Text style={[styles.cancelReplyText, { color: theme.colors.error }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.sendReplyButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => handleAddReply(comment.id)}
-              >
-                <Ionicons name="send" size={16} color="white" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
       </View>
+    )
+  }
+
+  // Show loading screen while fetching report
+  if (loadingReport || !reportData) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Report Details</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={[styles.reportLoadingContainer, { backgroundColor: theme.colors.background }]}>
+          <Text style={[styles.reportLoadingText, { color: theme.colors.text }]}>Loading report...</Text>
+        </View>
+      </SafeAreaView>
     )
   }
 
@@ -812,35 +735,35 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
                 <Ionicons name={getReportIcon() as any} size={24} color="#fff" />
               </View>
               <View style={styles.reportInfo}>
-                <Text style={[styles.reportTitle, { color: theme.colors.text }]}>{report.type}</Text>
-                <Text style={[styles.reportTime, { color: theme.colors.textSecondary }]}>{report.time}</Text>
+                <Text style={[styles.reportTitle, { color: theme.colors.text }]}>{reportData.type}</Text>
+                <Text style={[styles.reportTime, { color: theme.colors.textSecondary }]}>{reportData.time}</Text>
               </View>
-              {report.severity && (
+              {reportData.severity && (
                 <View style={[styles.severityBadge, { backgroundColor: getSeverityColor() }]}>
-                  <Text style={styles.severityText}>{report.severity.toUpperCase()}</Text>
+                  <Text style={styles.severityText}>{reportData.severity.toUpperCase()}</Text>
                 </View>
               )}
             </View>
 
             <Text style={[styles.reportDescription, { color: theme.colors.text }]}>
-              {report.description}
+              {reportData.description}
             </Text>
 
             {/* Location and Meta Info */}
             <View style={styles.reportMeta}>
-              {report.location && (
+              {reportData.location && (
                 <View style={styles.metaItem}>
                   <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
                   <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                    {report.location.address || `${report.location.latitude}, ${report.location.longitude}`}
+                    {reportData.location.address || `${reportData.location.latitude}, ${reportData.location.longitude}`}
                   </Text>
                 </View>
               )}
-              {report.estimatedClearTime && (
+              {reportData.estimatedClearTime && (
                 <View style={styles.metaItem}>
                   <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
                   <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                    Est. clear: {report.estimatedClearTime}
+                    Est. clear: {reportData.estimatedClearTime}
                   </Text>
                 </View>
               )}
@@ -848,11 +771,11 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
           </View>
 
           {/* Map */}
-          {report.location && (
+          {reportData.location && (
             <View style={styles.mapContainer}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Location</Text>
               <MapComponent
-                location={report.location}
+                location={reportData.location}
                 reports={[]}
                 showUserLocation={false}
                 followUserLocation={false}
@@ -862,22 +785,22 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
           )}
 
           {/* Report Images */}
-          {report.images && report.images.length > 0 && (
+          {reportData.images && reportData.images.length > 0 && (
             <View style={styles.imageSection}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Report Image{report.images.length > 1 ? 's' : ''}
+                Report Image{reportData.images.length > 1 ? 's' : ''}
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.imagesContainer}
               >
-                {report.images.map((imageUrl: string, index: number) => (
+                {reportData.images.map((imageUrl: string, index: number) => (
                   <TouchableOpacity
                     key={index}
                     style={[
                       styles.imageWrapper,
-                      index === report.images.length - 1 ? { marginRight: 0 } : {}
+                      index === reportData.images.length - 1 ? { marginRight: 0 } : {}
                     ]}
                     onPress={() => {
                       // TODO: Add image viewer/zoom functionality
@@ -921,59 +844,44 @@ export default function ReportDetailsScreen({ navigation, route }: ReportDetails
               <TouchableOpacity
                 style={[
                   styles.voteButton,
-                  isUpvoted && styles.voteButtonUpvoted,
+                  isVerified && styles.voteButtonUpvoted,
                   isVoting && styles.voteButtonDisabled
                 ]}
-                onPress={handleUpvote}
+                onPress={handleVerify}
                 disabled={isVoting}
               >
                 <Ionicons
-                  name="arrow-up"
+                  name="checkmark-circle"
                   size={24}
-                  color={isUpvoted ? "#fff" : theme.colors.success}
+                  color={isVerified ? "#fff" : theme.colors.success}
                 />
-                <Text style={[styles.voteText, { color: isUpvoted ? "#fff" : theme.colors.textSecondary }]}>
-                  {upvotes} Upvotes
+                <Text style={[styles.voteText, { color: isVerified ? "#fff" : theme.colors.textSecondary }]}>
+                  {verifications} Verify
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.voteButton,
-                  isDownvoted && styles.voteButtonDownvoted,
+                  isDisputed && styles.voteButtonDownvoted,
                   isVoting && styles.voteButtonDisabled
                 ]}
-                onPress={handleDownvote}
+                onPress={handleDispute}
                 disabled={isVoting}
               >
                 <Ionicons
-                  name="arrow-down"
+                  name="close-circle"
                   size={24}
-                  color={isDownvoted ? "#fff" : theme.colors.error}
+                  color={isDisputed ? "#fff" : theme.colors.error}
                 />
-                <Text style={[styles.voteText, { color: isDownvoted ? "#fff" : theme.colors.textSecondary }]}>
-                  {downvotes} Downvotes
+                <Text style={[styles.voteText, { color: isDisputed ? "#fff" : theme.colors.textSecondary }]}>
+                  {disputes} Dispute
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Alternative Routes */}
-          {alternativeRoutes.length > 0 && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Alternative Routes</Text>
-              {alternativeRoutes.map((route) => (
-                <TouchableOpacity key={route.id} style={[styles.routeCard, { backgroundColor: theme.colors.surface }]}>
-                  <View style={styles.routeHeader}>
-                    <Text style={[styles.routeName, { color: theme.colors.text }]}>{route.name}</Text>
-                    <Text style={[styles.routeDuration, { color: theme.colors.primary }]}>{route.duration}</Text>
-                  </View>
-                  <Text style={[styles.routeDescription, { color: theme.colors.textSecondary }]}>{route.description}</Text>
-                  <Text style={[styles.routeSavings, { color: theme.colors.success }]}>{route.savings}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+
 
           {/* Comments Section */}
           <View style={styles.section}>
@@ -1230,38 +1138,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  routeCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  routeHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  routeName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  routeDuration: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  routeDescription: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  routeSavings: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
+
 
   addCommentButton: {
     padding: 4,
@@ -1367,72 +1244,15 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
   },
-  replyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginLeft: 44,
-    marginTop: 8,
-    paddingVertical: 4,
-  },
-  replyButtonText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  repliesContainer: {
-    marginLeft: 20,
-    marginTop: 12,
-    paddingLeft: 16,
-    borderLeftWidth: 2,
-    borderLeftColor: "#E0E0E0",
-  },
-  replyCard: {
-    padding: 12,
-    marginBottom: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
-  },
-  replyText: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginLeft: 36,
-    marginTop: 4,
-  },
-  replyInputContainer: {
-    marginTop: 12,
-    marginLeft: 20,
-    padding: 12,
-    borderTopWidth: 1,
-    borderRadius: 8,
-  },
-  replyInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    maxHeight: 80,
-    marginBottom: 8,
-  },
-  replyInputActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
-  cancelReplyButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  cancelReplyText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  sendReplyButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignItems: "center",
+
+  reportLoadingContainer: {
+    flex: 1,
     justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  reportLoadingText: {
+    fontSize: 16,
+    textAlign: "center",
   },
 })

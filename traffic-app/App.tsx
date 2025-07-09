@@ -193,10 +193,7 @@ export default function App() {
         await notificationService.initialize()
         await userService.initialize()
 
-        // Start demo notifications after a delay
-        setTimeout(() => {
-          notificationService.simulateTrafficAlerts()
-        }, 10000) // 10 seconds after app start
+
 
         console.log("Services initialized successfully")
       } catch (error) {

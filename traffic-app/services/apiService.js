@@ -219,6 +219,27 @@ class ApiService {
     );
   }
 
+  async getUserReports(page = 1, limit = 20, status = null) {
+    let url = `/users/reports?page=${page}&limit=${limit}`;
+    if (status) {
+      url += `&status=${status}`;
+    }
+    return await this.request(url);
+  }
+
+  async updateReport(reportId, updateData) {
+    return await this.request(`/reports/${reportId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  async deleteReport(reportId) {
+    return await this.request(`/reports/${reportId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getReportById(id) {
     return await this.request(`/reports/${id}`);
   }
@@ -229,6 +250,18 @@ class ApiService {
 
   async markReportHelpful(id) {
     return await this.request(`/reports/${id}/helpful`, { method: 'POST' });
+  }
+
+  async removeReportHelpful(id) {
+    return await this.request(`/reports/${id}/helpful`, { method: 'DELETE' });
+  }
+
+  async markReportDisputed(id) {
+    return await this.request(`/reports/${id}/dispute`, { method: 'POST' });
+  }
+
+  async removeReportDispute(id) {
+    return await this.request(`/reports/${id}/dispute`, { method: 'DELETE' });
   }
 
   async addComment(reportId, text) {
@@ -274,6 +307,8 @@ class ApiService {
       method: 'POST',
     });
   }
+
+
 
   // User methods
   async getUserProfile() {
@@ -331,17 +366,7 @@ class ApiService {
     });
   }
 
-  // Notification methods
-  async getNotifications() {
-    return await this.request('/notifications');
-  }
 
-  async markNotificationsRead(notificationIds) {
-    return await this.request('/notifications/mark-read', {
-      method: 'POST',
-      body: JSON.stringify({ notificationIds }),
-    });
-  }
 }
 
 // Export singleton instance

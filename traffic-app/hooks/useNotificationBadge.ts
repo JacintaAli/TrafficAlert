@@ -16,9 +16,22 @@ export function useNotificationBadge(): NotificationBadgeData {
     hasUnread: false
   })
 
-  const updateBadgeData = () => {
-    const notifications = notificationService.getNotifications()
-    const unreadNotifications = notifications.filter(n => !n.read)
+  const updateBadgeData = async () => {
+    try {
+      // Check if service is initialized
+      if (!notificationService.isServiceInitialized()) {
+        console.log('Notification service not yet initialized, using empty state')
+        setBadgeData({
+          count: 0,
+          highestSeverity: 'medium',
+          hasUnread: false
+        })
+        return
+      }
+
+      // Try to get fresh notifications from backend
+      const notifications = await notificationService.getNotifications()
+      const unreadNotifications = notifications.filter(n => !n.read)
     
     if (unreadNotifications.length === 0) {
       setBadgeData({
@@ -44,6 +57,37 @@ export function useNotificationBadge(): NotificationBadgeData {
       highestSeverity,
       hasUnread: true
     })
+    } catch (error) {
+      console.log('Error updating badge data:', error)
+      // Fallback to local notifications if backend fails
+      const localNotifications = notificationService.getLocalNotifications()
+      const unreadNotifications = localNotifications.filter(n => !n.read)
+
+      if (unreadNotifications.length === 0) {
+        setBadgeData({
+          count: 0,
+          highestSeverity: 'medium',
+          hasUnread: false
+        })
+        return
+      }
+
+      // Determine highest severity among unread notifications
+      const severityOrder = { 'low': 1, 'medium': 2, 'high': 3, 'critical': 4 }
+      const highestSeverity = unreadNotifications.reduce((highest, notification) => {
+        const notificationSeverity = notification.priority as 'low' | 'medium' | 'high' | 'critical'
+        const currentLevel = severityOrder[notificationSeverity] || 2
+        const highestLevel = severityOrder[highest] || 2
+
+        return currentLevel > highestLevel ? notificationSeverity : highest
+      }, 'medium' as 'low' | 'medium' | 'high' | 'critical')
+
+      setBadgeData({
+        count: unreadNotifications.length,
+        highestSeverity,
+        hasUnread: true
+      })
+    }
   }
 
   useEffect(() => {

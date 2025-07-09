@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react"
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, Image, Share, Alert, RefreshControl } from "react-native"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, Image, Share, Alert, RefreshControl, AppState, AppStateStatus } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTheme } from "../contexts/ThemeContext"
 import { reportService } from "../services/reportService"
 import UserAvatar, { UserAvatarSizes } from "../components/UserAvatar"
+import { useFocusEffect } from "@react-navigation/native"
 
 interface AllReportsScreenProps {
   navigation: any
@@ -14,10 +15,64 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
   const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [autoRefreshing, setAutoRefreshing] = useState(false)
+  const refreshIntervalRef = useRef<number | null>(null)
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState)
+
+  // Auto-refresh every 30 seconds when screen is active
+  const AUTO_REFRESH_INTERVAL = 30000 // 30 seconds
 
   useEffect(() => {
     loadReports()
+    startAutoRefresh()
+
+    // Listen for app state changes
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App came to foreground, refresh data
+        console.log('📋 App came to foreground, refreshing reports...')
+        loadReports()
+      }
+      appStateRef.current = nextAppState
+    }
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange)
+
+    return () => {
+      stopAutoRefresh()
+      subscription?.remove()
+    }
   }, [])
+
+  // Refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📋 AllReports screen focused, refreshing...')
+      loadReports()
+      startAutoRefresh()
+
+      return () => {
+        stopAutoRefresh()
+      }
+    }, [])
+  )
+
+  const startAutoRefresh = () => {
+    stopAutoRefresh() // Clear any existing interval
+    refreshIntervalRef.current = setInterval(async () => {
+      console.log('📋 Auto-refreshing reports...')
+      setAutoRefreshing(true)
+      await loadReports()
+      setAutoRefreshing(false)
+    }, AUTO_REFRESH_INTERVAL)
+  }
+
+  const stopAutoRefresh = () => {
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current)
+      refreshIntervalRef.current = null
+    }
+  }
 
   const loadReports = async () => {
     try {
@@ -112,10 +167,10 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
             style={styles.actionButton}
             onPress={(e) => {
               e.stopPropagation();
-              // Handle upvote action here if needed
+              // Handle verify action here if needed
             }}
           >
-            <Ionicons name="arrow-up" size={20} color={theme.colors.success} />
+            <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
             <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.upvotes}</Text>
           </TouchableOpacity>
 
@@ -123,11 +178,11 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
             style={styles.actionButton}
             onPress={(e) => {
               e.stopPropagation();
-              // Handle downvote action here if needed
+              // Handle dispute action here if needed
             }}
           >
-            <Ionicons name="arrow-down" size={20} color={theme.colors.error} />
-            <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.downvotes}</Text>
+            <Ionicons name="close-circle" size={20} color={theme.colors.error} />
+            <Text style={[styles.actionText, { color: theme.colors.textSecondary }]}>{item.downvotes || 0}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -167,6 +222,11 @@ export default function AllReportsScreen({ navigation }: AllReportsScreenProps) 
       <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Ionicons name="search" size={20} color={theme.colors.textSecondary} style={styles.searchIcon} />
         <Text style={[styles.searchPlaceholder, { color: theme.colors.textSecondary }]}>Ademola Adetokunbo Cresent, Wuse 2,...</Text>
+        {autoRefreshing && (
+          <View style={styles.autoRefreshIndicator}>
+            <Ionicons name="refresh" size={16} color={theme.colors.primary} />
+          </View>
+        )}
       </View>
 
       {loading ? (
@@ -334,5 +394,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
+  },
+  autoRefreshIndicator: {
+    position: "absolute",
+    right: 16,
+    top: "50%",
+    transform: [{ translateY: -8 }],
+    opacity: 0.7,
   },
 })

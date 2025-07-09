@@ -33,8 +33,25 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
       answer: "Tap the '+' button on the home screen, select the type of incident, add details, and submit. Your location will be automatically detected."
     },
     {
+      question: "What does it mean to verify a report?",
+      answer: "Verifying a report means you confirm that the traffic incident is real and accurate. This helps increase the report's credibility for other users."
+    },
+    {
+      question: "What happens when I dispute a report?",
+      answer: "Disputing a report signals that the information may be false, outdated, or misleading. Reports with multiple disputes will be reviewed and may be flagged or removed."
+    },
+    {
       question: "Are my reports anonymous?",
       answer: "Your reports are associated with your account for credibility, but your personal information is not shared publicly. Only your username is visible to other users."
+    },
+    {
+      question: "Can I see who verified or disputed a report?",
+      answer: "No, verify and dispute actions are anonymous to prevent bias or user targeting. However, we track the total number of verifications and disputes for each report."
+    },
+
+    {
+      question: "",
+      answer: "Go to Profile > Settings > Notifications to customize which alerts you want to receive."
     },
     {
       question: "How accurate are the traffic reports?",
@@ -43,6 +60,17 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
     {
       question: "Can I edit or delete my reports?",
       answer: "Yes, you can edit or delete your reports within 24 hours of submission. Go to your profile and find 'My Reports' section."
+    }, {
+      question: "How do I verify or dispute a report?",
+      answer: "When viewing a report, tap the thumbs-up (verify) or thumbs-down (dispute) icon to give feedback. You can only do one per report."
+    },
+    {
+      question: "Can I undo a verify or dispute?",
+      answer: "Yes, simply tap the same icon again to undo your action. You can also switch from verify to dispute and vice versa."
+    },
+    {
+      question: "How are comments used in reports?",
+      answer: "Comments allow users to provide additional information, updates, or context about a report. This helps others better understand the situation."
     },
     {
       question: "How do I get route suggestions?",
@@ -55,6 +83,13 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
     {
       question: "How do I turn off notifications?",
       answer: "Go to Profile > Settings > Notifications to customize which alerts you want to receive."
+    }, {
+      question: "Are there any rules for commenting?",
+      answer: "Yes, comments must be respectful and relevant to the traffic report. Spam, offensive content, or misinformation will be removed."
+    },
+    {
+      question: "Can I delete or edit my comments?",
+      answer: "Yes, you can edit or delete your own comments at any time by tapping the three-dot icon next to your comment."
     },
     {
       question: "Is TrafficAlert free to use?",
@@ -67,7 +102,7 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
       <View style={styles.faqContainer}>
         <Text style={styles.tabTitle}>Frequently Asked Questions</Text>
         <Text style={styles.tabSubtitle}>Find answers to common questions about TrafficAlert</Text>
-        
+
         {faqData.map((item, index) => (
           <View key={index} style={styles.faqItem}>
             <View style={styles.questionContainer}>
@@ -91,7 +126,7 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
       <View style={styles.legalContainer}>
         <Text style={styles.tabTitle}>Privacy Policy</Text>
         <Text style={styles.lastUpdated}>Last updated: July 2025</Text>
-        
+
         <View style={styles.legalSection}>
           <Text style={styles.legalSectionTitle}>Information We Collect</Text>
           <Text style={styles.legalText}>
@@ -146,7 +181,7 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
       <View style={styles.legalContainer}>
         <Text style={styles.tabTitle}>Terms & Conditions</Text>
         <Text style={styles.lastUpdated}>Last updated: July 2025</Text>
-        
+
         <View style={styles.legalSection}>
           <Text style={styles.legalSectionTitle}>Acceptance of Terms</Text>
           <Text style={styles.legalText}>
@@ -227,10 +262,10 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
             style={[styles.tab, activeTab === tab.id && styles.activeTab]}
             onPress={() => setActiveTab(tab.id)}
           >
-            <Ionicons 
-              name={tab.icon as any} 
-              size={20} 
-              color={activeTab === tab.id ? "#2196F3" : "#666"} 
+            <Ionicons
+              name={tab.icon as any}
+              size={20}
+              color={activeTab === tab.id ? "#2196F3" : "#666"}
             />
             <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
               {tab.title}

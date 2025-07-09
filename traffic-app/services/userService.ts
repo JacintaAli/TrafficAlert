@@ -307,7 +307,6 @@ class UserService {
         name: trimmedName, // Backend expects 'name' not 'username'
         // Note: Email updates are not supported by backend validation schema
         // phone: updatedProfile.phone, // Add if we have phone field
-        // quickDestinations: updatedProfile.quickDestinations, // Add if we have this field
       }
 
       // Include profile picture if it's a Cloudinary URL (uploaded to cloud)

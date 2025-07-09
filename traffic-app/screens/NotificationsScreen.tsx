@@ -1,104 +1,155 @@
-import { useState, useEffect } from "react"
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView } from "react-native"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, AppState, AppStateStatus } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { notificationService, NotificationData } from "../services/notificationService"
 import { useTheme } from "../contexts/ThemeContext"
 import { useNotificationBadge } from "../hooks/useNotificationBadge"
 import NotificationBadge from "../components/NotificationBadge"
+import { useFocusEffect } from "@react-navigation/native"
 
 interface NotificationsScreenProps {
   navigation: any
 }
 
-const dummyNotifications = [
-  {
-    id: "1",
-    type: "Car crash",
-    category: "Accident",
-    description: "2 cars hit each other near For You supermarket",
-    distance: "250m",
-    time: "5 min ago",
-    icon: "car-sport",
-    color: "#f44336",
-  },
-  {
-    id: "2",
-    type: "Road block",
-    category: "Traffic",
-    description: "The roads are completely blocked. It's like a traffic jam",
-    distance: "250m",
-    time: "12 min ago",
-    icon: "warning",
-    color: "#f44336",
-  },
-  {
-    id: "3",
-    type: "Serious Traffic jam",
-    category: "Accident",
-    description: "2 cars hit each other near For You supermarket",
-    distance: "250m",
-    time: "18 min ago",
-    icon: "car",
-    color: "#f44336",
-  },
-  {
-    id: "4",
-    type: "Commotion",
-    category: "Accident",
-    description: "2 cars hit each other near For You supermarket",
-    distance: "250m",
-    time: "25 min ago",
-    icon: "people",
-    color: "#ff9800",
-  },
-]
+
 
 export default function NotificationsScreen({ navigation }: NotificationsScreenProps) {
   const { theme } = useTheme()
   const { count, highestSeverity, hasUnread, refreshBadge } = useNotificationBadge() as any
   const [notifications, setNotifications] = useState<NotificationData[]>([])
   const [refreshing, setRefreshing] = useState(false)
+  const [autoRefreshing, setAutoRefreshing] = useState(false)
+  const refreshIntervalRef = useRef<number | null>(null)
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState)
+
+  // Auto-refresh every 15 seconds when screen is active (notifications need more frequent updates)
+  const AUTO_REFRESH_INTERVAL = 15000 // 15 seconds
 
   useEffect(() => {
     loadNotifications()
+    startAutoRefresh()
+
+    // Listen for app state changes
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App came to foreground, refresh notifications
+        console.log('🔔 App came to foreground, refreshing notifications...')
+        loadNotifications()
+      }
+      appStateRef.current = nextAppState
+    }
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange)
+
+    return () => {
+      stopAutoRefresh()
+      subscription?.remove()
+    }
   }, [])
 
-  const loadNotifications = () => {
-    const allNotifications = notificationService.getNotifications()
-    setNotifications(allNotifications)
+  // Refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔔 Notifications screen focused, refreshing...')
+      loadNotifications()
+      startAutoRefresh()
+
+      return () => {
+        stopAutoRefresh()
+      }
+    }, [])
+  )
+
+  const startAutoRefresh = () => {
+    stopAutoRefresh() // Clear any existing interval
+    refreshIntervalRef.current = setInterval(async () => {
+      console.log('🔔 Auto-refreshing notifications...')
+      setAutoRefreshing(true)
+      await loadNotifications()
+      setAutoRefreshing(false)
+    }, AUTO_REFRESH_INTERVAL)
   }
 
-  const handleRefresh = () => {
+  const stopAutoRefresh = () => {
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current)
+      refreshIntervalRef.current = null
+    }
+  }
+
+  const loadNotifications = async () => {
+    try {
+      const allNotifications = await notificationService.getNotifications()
+      setNotifications(allNotifications)
+      // Refresh the badge count after loading notifications
+      refreshBadge()
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+      // Fallback to local notifications
+      const localNotifications = notificationService.getLocalNotifications()
+      setNotifications(localNotifications)
+      refreshBadge()
+    }
+  }
+
+  const handleRefresh = async () => {
     setRefreshing(true)
-    loadNotifications()
+    await loadNotifications()
     setRefreshing(false)
   }
 
-  const handleMarkAsRead = (notificationId: string) => {
-    notificationService.markAsRead(notificationId)
-    loadNotifications()
-    refreshBadge() // Update badge count
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await notificationService.markAsRead(notificationId)
+
+      // Update local state immediately without reloading
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notif =>
+          notif.id === notificationId ? { ...notif, read: true } : notif
+        )
+      )
+
+      refreshBadge() // Update badge count
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
   }
 
-  const handleMarkAllAsRead = () => {
-    notificationService.markAllAsRead()
-    loadNotifications()
-    refreshBadge() // Update badge count
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead()
+
+      // Update local state immediately without reloading
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notif => ({ ...notif, read: true }))
+      )
+
+      refreshBadge() // Update badge count
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error)
+    }
   }
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'traffic': return 'car'
+      case 'traffic':
+      case 'traffic_alert': return 'car'
       case 'accident': return 'warning'
       case 'construction': return 'construct'
       case 'weather': return 'rainy'
-      case 'route': return 'map'
+      case 'route':
+      case 'route_alert': return 'map'
+      case 'report_comment': return 'chatbubble'
+      case 'report_upvote': return 'thumbs-up'
+      case 'report_verified': return 'checkmark-circle'
+      case 'nearby_incident': return 'location'
       default: return 'notifications'
     }
   }
 
   const getNotificationColor = (priority: string) => {
     switch (priority) {
+      case 'critical': return '#d32f2f'
       case 'high': return '#f44336'
       case 'normal': return '#ff9800'
       case 'low': return '#4caf50'
@@ -106,9 +157,16 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
     }
   }
 
-  const formatTime = (timestamp: Date) => {
+  const formatTime = (timestamp: Date | string) => {
     const now = new Date()
-    const diff = now.getTime() - timestamp.getTime()
+    const timestampDate = timestamp instanceof Date ? timestamp : new Date(timestamp)
+
+    // Check if the date is valid
+    if (isNaN(timestampDate.getTime())) {
+      return 'Just now'
+    }
+
+    const diff = now.getTime() - timestampDate.getTime()
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
     const days = Math.floor(hours / 24)
@@ -119,32 +177,57 @@ export default function NotificationsScreen({ navigation }: NotificationsScreenP
     return 'Just now'
   }
 
-  const handleNotificationPress = (item: NotificationData) => {
-    // Mark as read
-    handleMarkAsRead(item.id)
+  const handleNotificationPress = async (item: NotificationData) => {
+    try {
+      // Mark as read first and wait for it to complete
+      await handleMarkAsRead(item.id)
 
-    // Navigate to ReportDetailsScreen with notification data transformed to report format
-    const reportData = {
-      id: item.id,
-      type: item.title, // Use notification title as report type
-      description: item.body,
-      image: null, // Notifications don't have images by default
-      comments: 0, // Start with 0 comments
-      upvotes: 0, // Start with 0 upvotes
-      downvotes: 0, // Start with 0 downvotes
-      time: formatTime(item.timestamp),
-      location: item.location || {
-        latitude: 9.0765,
-        longitude: 7.3986,
-        address: "Unknown Location"
-      },
-      severity: item.priority as 'low' | 'medium' | 'high' | 'critical',
-      distance: "250m", // Mock distance
-      estimatedClearTime: "30 min",
-      affectedRoutes: ["Main Street", "Highway 1"]
+      // Navigate based on notification data
+      if (item.data?.reportId) {
+        // If we have a report ID, navigate to the actual report
+        navigation.navigate('ReportDetails', { reportId: item.data.reportId })
+      } else {
+        // Fallback: create report data from notification with all required properties
+        const reportData = {
+          id: item.data?.reportId || item.id,
+          type: item.data?.reportType || item.title,
+          description: item.body,
+          image: null,
+          images: [], // Array of images
+          comments: 0,
+          upvotes: 0, // Number for vote count
+          downvotes: 0, // Number for vote count
+          upvoteCount: 0, // Alternative property name
+          downvoteCount: 0, // Alternative property name
+          time: formatTime(item.timestamp),
+          timestamp: item.timestamp,
+          location: item.location || {
+            latitude: 9.0765,
+            longitude: 7.3986,
+            address: "Unknown Location"
+          },
+          latitude: item.location?.latitude || 9.0765,
+          longitude: item.location?.longitude || 7.3986,
+          severity: item.priority as 'low' | 'medium' | 'high' | 'critical',
+          priority: item.priority,
+          distance: "250m",
+          estimatedClearTime: "30 min",
+          affectedRoutes: ["Main Street", "Highway 1"],
+          verified: false,
+          userId: 'unknown',
+          user: {
+            _id: 'unknown',
+            name: 'Anonymous User',
+            profilePicture: undefined
+          },
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+        }
+
+        navigation.navigate('ReportDetails', { report: reportData })
+      }
+    } catch (error) {
+      console.error('Error handling notification press:', error)
     }
-
-    navigation.navigate('ReportDetails', { report: reportData })
   }
 
   const renderNotificationItem = ({ item }: { item: NotificationData }) => (
